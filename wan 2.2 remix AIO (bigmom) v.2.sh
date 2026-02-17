@@ -1,39 +1,44 @@
 #!/bin/bash
 
 # ==========================================
-# KIRILL'S WAN 2.2 REMIX SETUP (FIXED ENVIRONMENT)
+# FINAL FIX: WAN 2.2 INSTALLER FOR VAST.AI
 # ==========================================
 
-# 1. ОПРЕДЕЛЕНИЕ ПРАВИЛЬНОГО PYTHON
-# Vast.ai часто использует venv. Проверяем его наличие.
+# 1. НАСТРОЙКА ОКРУЖЕНИЯ
+# Определяем, где лежит настоящий Python для ComfyUI
 if [ -f "/venv/main/bin/python" ]; then
-    PYTHON_EXEC="/venv/main/bin/python"
-    echo "✅ Обнаружено виртуальное окружение: $PYTHON_EXEC"
+    PY_EXEC="/venv/main/bin/python"
+    PIP_EXEC="/venv/main/bin/pip"
+    echo "✅ Найден venv python: $PY_EXEC"
 else
-    PYTHON_EXEC="python3"
-    echo "⚠️ Виртуальное окружение не найдено, используем системный python3"
+    PY_EXEC="python3"
+    PIP_EXEC="pip"
+    echo "⚠️ Используем системный python3"
 fi
 
-# Пути
 COMFY_DIR="/workspace/ComfyUI"
 NODES_DIR="$COMFY_DIR/custom_nodes"
 MODELS_DIR="$COMFY_DIR/models"
 
-echo "🚀 Начинаем установку (используем $PYTHON_EXEC)..."
+# 2. УСТАНОВКА СИСТЕМНЫХ УТИЛИТ (ARIA2 + FFMPEG)
+echo "⚙️ Установка системных утилит..."
+apt-get update
+apt-get install -y aria2 ffmpeg libgl1-mesa-glx
 
-# 2. УСТАНОВКА СИСТЕМНЫХ ЗАВИСИМОСТЕЙ
-apt-get update && apt-get install -y ffmpeg aria2 libgl1-mesa-glx
+# Проверка, встал ли aria2
+if ! command -v aria2c &> /dev/null; then
+    echo "❌ ОШИБКА: aria2c не установился. Пробую запасной вариант..."
+    apt-get install -y aria2
+fi
 
-# 3. ПРИНУДИТЕЛЬНАЯ УСТАНОВКА ПРОБЛЕМНЫХ БИБЛИОТЕК
-# Устанавливаем их прямо в venv, чтобы избежать ошибок ModuleNotFoundError
-echo "📦 Установка критических библиотек (cv2, accelerate, dynamicprompts)..."
-$PYTHON_EXEC -m pip install --upgrade pip
-$PYTHON_EXEC -m pip install opencv-python opencv-python-headless accelerate dynamicprompts imageio-ffmpeg
+# 3. ЛЕЧЕНИЕ БИБЛИОТЕК (CV2, ACCELERATE)
+echo "💊 Лечение библиотек Python..."
+$PIP_EXEC install --upgrade pip
+$PIP_EXEC install opencv-python opencv-python-headless accelerate dynamicprompts imageio-ffmpeg
 
 # 4. УСТАНОВКА CUSTOM NODES
 cd $NODES_DIR
 
-# Функция для клонирования и установки зависимостей
 install_node() {
     REPO_URL=$1
     DIR_NAME=$2
@@ -41,18 +46,18 @@ install_node() {
         echo "⬇️ Клонирование $DIR_NAME..."
         git clone $REPO_URL
     else
-        echo "🔄 $DIR_NAME уже существует, пропускаем клонирование..."
+        echo "🔄 $DIR_NAME уже установлен, пропускаем."
     fi
     
+    # Если есть requirements, ставим их в правильный питон
     if [ -f "$DIR_NAME/requirements.txt" ]; then
-        echo "   📦 Установка зависимостей для $DIR_NAME..."
+        echo "   📦 Зависимости для $DIR_NAME..."
         cd $DIR_NAME
-        $PYTHON_EXEC -m pip install -r requirements.txt
+        $PIP_EXEC install -r requirements.txt
         cd ..
     fi
 }
 
-# --- Установка нод ---
 install_node "https://github.com/Kijai/ComfyUI-WanVideoWrapper.git" "ComfyUI-WanVideoWrapper"
 install_node "https://github.com/Kosinkadink/ComfyUI-VideoHelperSuite.git" "ComfyUI-VideoHelperSuite"
 install_node "https://github.com/kijai/ComfyUI-KJNodes.git" "ComfyUI-KJNodes"
@@ -66,37 +71,46 @@ if [ ! -d "ComfyUI-Custom-Scripts" ]; then
     git clone https://github.com/pythongosssss/ComfyUI-Custom-Scripts.git
 fi
 
-# 5. ЗАГРУЗКА МОДЕЛЕЙ (С проверкой, чтобы не качать заново)
-echo "⬇️ Проверка и докачка моделей..."
+# 5. СКАЧИВАНИЕ МОДЕЛЕЙ
+echo "⬇️ Скачивание моделей (Wan 2.2)..."
 
-# --- Diffusion Models ---
-cd $MODELS_DIR/diffusion_models
-# High Lighting
-if [ ! -f "Wan2.2_Remix_NSFW_i2v_14b_high_lighting_v2.0.safetensors" ]; then
-    aria2c --console-log-level=error -c -x 16 -s 16 -k 1M "https://huggingface.co/dci05049/wan-video/resolve/main/Wan2.2_Remix_NSFW_i2v_14b_high_lighting_v2.0.safetensors"
-fi
-# Low Lighting
-if [ ! -f "Wan2.2_Remix_NSFW_i2v_14b_low_lighting_v2.0.safetensors" ]; then
-    aria2c --console-log-level=error -c -x 16 -s 16 -k 1M "https://huggingface.co/dci05049/wan-video/resolve/main/Wan2.2_Remix_NSFW_i2v_14b_low_lighting_v2.0.safetensors"
-fi
+# Функция скачивания через aria2
+download_model() {
+    URL=$1
+    FILENAME=$2
+    TARGET_DIR=$3
+    
+    mkdir -p "$TARGET_DIR"
+    cd "$TARGET_DIR"
+    
+    if [ ! -f "$FILENAME" ]; then
+        echo "   🚀 Качаем $FILENAME..."
+        aria2c --console-log-level=error -c -x 16 -s 16 -k 1M "$URL" -o "$FILENAME"
+    else
+        echo "   ✅ $FILENAME уже скачан."
+    fi
+}
 
-# --- Text Encoders ---
-mkdir -p $MODELS_DIR/text_encoders
-cd $MODELS_DIR/text_encoders
-if [ ! -f "nsfw_wan_umt5-xxl_fp8_scaled.safetensors" ]; then
-    aria2c --console-log-level=error -c -x 16 -s 16 -k 1M "https://huggingface.co/dci05049/wan-video/resolve/main/nsfw_wan_umt5-xxl_fp8_scaled.safetensors"
-fi
+# --- Checkpoints ---
+download_model "https://huggingface.co/dci05049/wan-video/resolve/main/Wan2.2_Remix_NSFW_i2v_14b_high_lighting_v2.0.safetensors" \
+               "Wan2.2_Remix_NSFW_i2v_14b_high_lighting_v2.0.safetensors" \
+               "$MODELS_DIR/diffusion_models"
+
+download_model "https://huggingface.co/dci05049/wan-video/resolve/main/Wan2.2_Remix_NSFW_i2v_14b_low_lighting_v2.0.safetensors" \
+               "Wan2.2_Remix_NSFW_i2v_14b_low_lighting_v2.0.safetensors" \
+               "$MODELS_DIR/diffusion_models"
+
+# --- Text Encoder (T5) ---
+download_model "https://huggingface.co/dci05049/wan-video/resolve/main/nsfw_wan_umt5-xxl_fp8_scaled.safetensors" \
+               "nsfw_wan_umt5-xxl_fp8_scaled.safetensors" \
+               "$MODELS_DIR/text_encoders"
 
 # --- VAE ---
-mkdir -p $MODELS_DIR/vae
-cd $MODELS_DIR/vae
-if [ ! -f "wan_2.1_vae.safetensors" ]; then
-    aria2c --console-log-level=error -c -x 16 -s 16 -k 1M "https://huggingface.co/Comfy-Org/Wan_2.1_ComfyUI_repackaged/resolve/main/split_files/vae/wan_2.1_vae.safetensors"
-fi
+download_model "https://huggingface.co/Comfy-Org/Wan_2.1_ComfyUI_repackaged/resolve/main/split_files/vae/wan_2.1_vae.safetensors" \
+               "wan_2.1_vae.safetensors" \
+               "$MODELS_DIR/vae"
 
-# --- LoRAs (PLACEHOLDER) ---
-# Не забудь вставить ссылки, если нашел их!
-cd $MODELS_DIR/loras
-# aria2c ...
 
-echo "✅ Установка завершена! Перезапусти ComfyUI (RESTART)."
+echo "=========================================="
+echo "✅ ВСЁ ГОТОВО! ПЕРЕЗАПУСТИ COMFYUI"
+echo "=========================================="
