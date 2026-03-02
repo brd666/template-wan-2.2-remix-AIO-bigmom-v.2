@@ -45,8 +45,8 @@ git clone https://github.com/adieyal/comfyui-dynamicprompts.git
 echo "=== 2. Установка Python-зависимостей строго в venv ComfyUI ==="
 cd "$COMFY_DIR" || exit
 
-# Устанавливаем ВСЕ потерянные библиотеки одним махом
-$VENV_PYTHON -m pip install opencv-python-headless numba dynamicprompts piexif ultralytics
+# --- ОБНОВЛЕНО: Добавлены segment-anything и dill ---
+$VENV_PYTHON -m pip install opencv-python-headless numba dynamicprompts piexif ultralytics segment-anything dill
 
 if [ -f "$CUSTOM_NODES_DIR/ComfyUI-Impact-Pack/install.py" ]; then
     $VENV_PYTHON "$CUSTOM_NODES_DIR/ComfyUI-Impact-Pack/install.py"
@@ -69,12 +69,10 @@ download_file "https://huggingface.co/Bingsu/adetailer/resolve/main/face_yolov8n
 download_file "https://huggingface.co/Bingsu/adetailer/resolve/main/hand_yolov9c.pt" "$MODELS_DIR/ultralytics/bbox" "hand_yolov9c.pt"
 
 echo "=== 5. Загрузка Checkpoints (Civitai) ==="
-# Обрати внимание: теперь мы явно задаем имя файла в конце
 download_civitai "https://civitai.com/api/download/models/2703578" "$MODELS_DIR/checkpoints" "animij_v9.safetensors"
 download_civitai "https://civitai.com/api/download/models/2167369" "$MODELS_DIR/checkpoints" "second_model.safetensors"
 
 echo "=== 6. Загрузка LoRA (Civitai) ==="
-# Имена файлов взяты из лога ошибок, где система пыталась их сохранить
 download_civitai "https://civitai.com/api/download/models/2172230" "$MODELS_DIR/loras" "devmgf_Style.safetensors"
 download_civitai "https://civitai.com/api/download/models/586803" "$MODELS_DIR/loras" "Gigagirl_v1_ponyXL.safetensors"
 download_civitai "https://civitai.com/api/download/models/1387728" "$MODELS_DIR/loras" "Jolly_Jacks_biggest_beasts_Illustrious.safetensors"
