@@ -110,6 +110,15 @@ download_model "https://huggingface.co/Comfy-Org/Wan_2.1_ComfyUI_repackaged/reso
                "wan_2.1_vae.safetensors" \
                "$MODELS_DIR/vae"
 
+# --- LoRAs (Civitai API) ---
+echo "⬇️ Скачивание кастомных LoRA с Civitai..."
+download_model "https://civitai.com/api/download/models/2553271?type=Model&format=SafeTensor&token=081a64d161426a342030222e826cbbca" \
+               "NSFW-22-H-e8.safetensors" \
+               "$MODELS_DIR/loras"
+
+download_model "https://civitai.com/api/download/models/2553151?type=Model&format=SafeTensor&token=081a64d161426a342030222e826cbbca" \
+               "NSFW-22-L-e8.safetensors" \
+               "$MODELS_DIR/loras"
 
 echo "=========================================="
 echo "✅ ВСЁ ГОТОВО! ПЕРЕЗАПУСТИ COMFYUI"
