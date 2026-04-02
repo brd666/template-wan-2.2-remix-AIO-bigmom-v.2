@@ -45,7 +45,6 @@ git clone https://github.com/adieyal/comfyui-dynamicprompts.git
 echo "=== 2. Установка Python-зависимостей строго в venv ComfyUI ==="
 cd "$COMFY_DIR" || exit
 
-# --- ОБНОВЛЕНО: Добавлены segment-anything и dill ---
 $VENV_PYTHON -m pip install opencv-python-headless numba dynamicprompts piexif ultralytics segment-anything dill
 
 if [ -f "$CUSTOM_NODES_DIR/ComfyUI-Impact-Pack/install.py" ]; then
@@ -71,11 +70,22 @@ download_file "https://huggingface.co/Bingsu/adetailer/resolve/main/hand_yolov9c
 echo "=== 5. Загрузка Checkpoints (Civitai) ==="
 download_civitai "https://civitai.com/api/download/models/2703578" "$MODELS_DIR/checkpoints" "animij_v9.safetensors"
 download_civitai "https://civitai.com/api/download/models/2167369" "$MODELS_DIR/checkpoints" "second_model.safetensors"
+# Добавлено: babesByStableYogiPony_v60FP16
+download_civitai "https://civitai.com/api/download/models/2110984?type=Model&format=SafeTensor&size=pruned&fp=fp16" "$MODELS_DIR/checkpoints" "babesByStableYogiPony_v60FP16.safetensors"
 
 echo "=== 6. Загрузка LoRA (Civitai) ==="
 download_civitai "https://civitai.com/api/download/models/2172230" "$MODELS_DIR/loras" "devmgf_Style.safetensors"
 download_civitai "https://civitai.com/api/download/models/586803" "$MODELS_DIR/loras" "Gigagirl_v1_ponyXL.safetensors"
 download_civitai "https://civitai.com/api/download/models/1387728" "$MODELS_DIR/loras" "Jolly_Jacks_biggest_beasts_Illustrious.safetensors"
 download_civitai "https://civitai.com/api/download/models/1145311" "$MODELS_DIR/loras" "round_breasts-IL-1.0.safetensors"
+
+# --- НОВЫЕ МОДЕЛИ ---
+download_civitai "https://civitai.com/api/download/models/1189052" "$MODELS_DIR/loras" "incoth.safetensors"
+download_civitai "https://civitai.com/api/download/models/1537611" "$MODELS_DIR/loras" "nb-c_v2_IL-000025.safetensors"
+download_civitai "https://civitai.com/api/download/models/1447787" "$MODELS_DIR/loras" "Matte_Skin_Illustrious_v4.safetensors"
+download_civitai "https://civitai.com/api/download/models/2213606" "$MODELS_DIR/loras" "smooth_soft_skin.safetensors"
+download_civitai "https://civitai.com/api/download/models/1835318" "$MODELS_DIR/loras" "Breast_Size_Slider.safetensors"
+download_civitai "https://civitai.com/api/download/models/2148484" "$MODELS_DIR/loras" "Femenine_body_hq_illu.safetensors"
+download_civitai "https://civitai.com/api/download/models/1384096" "$MODELS_DIR/loras" "Narrow_Waist_ILXL.safetensors"
 
 echo "=== Настройка завершена! ==="
