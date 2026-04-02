@@ -69,7 +69,7 @@ download_file "https://huggingface.co/Bingsu/adetailer/resolve/main/hand_yolov9c
 
 echo "=== 5. Загрузка Checkpoints (Civitai) ==="
 download_civitai "https://civitai.com/api/download/models/2703578" "$MODELS_DIR/checkpoints" "animij_v9.safetensors"
-download_civitai "https://civitai.com/api/download/models/2167369" "$MODELS_DIR/checkpoints" "second_model.safetensors"
+download_civitai "https://civitai.com/api/download/models/2167369" "$MODELS_DIR/checkpoints" "waiV150.safetensors"
 # Добавлено: babesByStableYogiPony_v60FP16
 download_civitai "https://civitai.com/api/download/models/2110984?type=Model&format=SafeTensor&size=pruned&fp=fp16" "$MODELS_DIR/checkpoints" "babesByStableYogiPony_v60FP16.safetensors"
 
@@ -87,5 +87,6 @@ download_civitai "https://civitai.com/api/download/models/2213606" "$MODELS_DIR/
 download_civitai "https://civitai.com/api/download/models/1835318" "$MODELS_DIR/loras" "Breast_Size_Slider.safetensors"
 download_civitai "https://civitai.com/api/download/models/2148484" "$MODELS_DIR/loras" "Femenine_body_hq_illu.safetensors"
 download_civitai "https://civitai.com/api/download/models/1384096" "$MODELS_DIR/loras" "Narrow_Waist_ILXL.safetensors"
+download_civitai "https://civitai.com/api/download/models/481798" "$MODELS_DIR/loras" "Sinozick_style-.safetensors"
 
 echo "=== Настройка завершена! ==="
