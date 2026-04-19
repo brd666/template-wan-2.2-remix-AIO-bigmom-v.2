@@ -108,6 +108,9 @@ download_model "https://huggingface.co/Comfy-Org/Wan_2.1_ComfyUI_repackaged/reso
 TOKEN="081a64d161426a342030222e826cbbca"
 download_model "https://civitai.com/api/download/models/2553271?token=$TOKEN" "NSFW-22-H-e8.safetensors" "$MODELS_DIR/loras"
 download_model "https://civitai.com/api/download/models/2553151?token=$TOKEN" "NSFW-22-L-e8.safetensors" "$MODELS_DIR/loras"
+download_model "https://civitai.red/api/download/models/2266727?token=$TOKEN" "M4CROM4STI4-L.safetensors" "$MODELS_DIR/loras"
+download_model "https://civitai.red/api/download/models/2265575?token=$TOKEN" "M4CROM4STI4-H.safetensors" "$MODELS_DIR/loras"
+
 
 echo "=========================================="
 echo "✅ ВСЕ ОПЕРАЦИИ ЗАВЕРШЕНЫ!"
