@@ -7,14 +7,9 @@
 COMFY_DIR="/workspace/ComfyUI"
 CUSTOM_NODES_DIR="$COMFY_DIR/custom_nodes"
 MODELS_DIR="$COMFY_DIR/models"
-
-# Vast.ai стандартный путь к Python venv
-VENV_PYTHON="$COMFY_DIR/venv/bin/python"
-
-# Civitai API token
+VENV_PYTHON="/venv/main/bin/python"
 CIVITAI_TOKEN="93edfd8cf30d4caf7cdb82d6a92c475b"
 
-# --- Функция скачивания (HuggingFace, прямые ссылки) ---
 download_file() {
     local url="$1"
     local dir="$2"
@@ -24,7 +19,6 @@ download_file() {
     wget -q --show-progress -c -O "$dir/$filename" "$url"
 }
 
-# --- Функция скачивания с Civitai ---
 download_civitai() {
     local url="$1"
     local dir="$2"
@@ -35,7 +29,7 @@ download_civitai() {
 }
 
 # =============================================================================
-echo "=== 1. Установка Custom Nodes ==="
+echo "=== 1. Custom Nodes ==="
 # =============================================================================
 mkdir -p "$CUSTOM_NODES_DIR"
 cd "$CUSTOM_NODES_DIR" || exit 1
@@ -70,32 +64,51 @@ for repo in "${repos[@]}"; do
 done
 
 # =============================================================================
-echo "=== 2. Установка Python зависимостей ==="
+echo "=== 2. Python зависимости ==="
 # =============================================================================
 cd "$COMFY_DIR" || exit 1
 
 $VENV_PYTHON -m pip install -q --upgrade pip
+
 $VENV_PYTHON -m pip install -q \
     opencv-python-headless \
     numba \
     dynamicprompts \
     piexif \
     ultralytics \
-    segment-anything \
     dill \
     insightface \
     onnxruntime-gpu \
     facexlib \
-    mediapipe
+    mediapipe \
+    deepdiff \
+    timm \
+    einops \
+    kornia \
+    filelock \
+    scipy \
+    scikit-image \
+    pycocotools \
+    ftfy \
+    python-dateutil \
+    openai \
+    requests \
+    rembg
 
+# Segment Anything (для Impact-Pack SAM)
+$VENV_PYTHON -m pip install -q git+https://github.com/facebookresearch/segment-anything.git
+
+# Impact Pack installer
 if [ -f "$CUSTOM_NODES_DIR/ComfyUI-Impact-Pack/install.py" ]; then
     $VENV_PYTHON "$CUSTOM_NODES_DIR/ComfyUI-Impact-Pack/install.py"
 fi
 
-for node_dir in was-node-suite-comfyui ComfyUI-Easy-Use comfyui-dynamicprompts comfyui_controlnet_aux ComfyUI-KJNodes; do
+# requirements.txt для нод
+for node_dir in was-node-suite-comfyui ComfyUI-Easy-Use comfyui-dynamicprompts comfyui_controlnet_aux ComfyUI-KJNodes ComfyUI_LayerStyle ComfyUI-Crystools; do
     req="$CUSTOM_NODES_DIR/$node_dir/requirements.txt"
     if [ -f "$req" ]; then
-        $VENV_PYTHON -m pip install -q -r "$req"
+        echo "[REQ] $node_dir"
+        $VENV_PYTHON -m pip install -q -r "$req" || true
     fi
 done
 
@@ -213,11 +226,11 @@ download_civitai "https://civitai.com/api/download/models/2082538" "$MODELS_DIR/
 download_civitai "https://civitai.com/api/download/models/907787"  "$MODELS_DIR/loras" "amateur_photo_v2.safetensors"
 download_civitai "https://civitai.com/api/download/models/870027"  "$MODELS_DIR/loras" "igbaddie-PN.safetensors"
 
-# LoRA в подпапках (зеркало структуры воркфлоу)
-download_civitai "https://civitai.com/api/download/models/829397"  "$MODELS_DIR/loras/Pony/style"             "amateur_style_v1_pony.safetensors"
-download_civitai "https://civitai.com/api/download/models/1062449" "$MODELS_DIR/loras/Pony/realistic"         "Pony Realism Slider.safetensors"
-download_civitai "https://civitai.com/api/download/models/1234567" "$MODELS_DIR/loras/Illustrious/concept"    "Hyper_Muscles_V4.2.safetensors"
-download_civitai "https://civitai.com/api/download/models/1113756" "$MODELS_DIR/loras/Illustrious/concept"    "Eyes_for_Illustrious_Lora_Perfect_anime_eyes.safetensors"
-download_civitai "https://civitai.com/api/download/models/1253891" "$MODELS_DIR/loras/Illustrious/concept"    "detailed hand focus style illustriousXL v1.1.safetensors"
+# LoRA в подпапках
+download_civitai "https://civitai.com/api/download/models/829397"  "$MODELS_DIR/loras/Pony/style"          "amateur_style_v1_pony.safetensors"
+download_civitai "https://civitai.com/api/download/models/1062449" "$MODELS_DIR/loras/Pony/realistic"      "Pony Realism Slider.safetensors"
+download_civitai "https://civitai.com/api/download/models/1234567" "$MODELS_DIR/loras/Illustrious/concept" "Hyper_Muscles_V4.2.safetensors"
+download_civitai "https://civitai.com/api/download/models/1113756" "$MODELS_DIR/loras/Illustrious/concept" "Eyes_for_Illustrious_Lora_Perfect_anime_eyes.safetensors"
+download_civitai "https://civitai.com/api/download/models/1253891" "$MODELS_DIR/loras/Illustrious/concept" "detailed hand focus style illustriousXL v1.1.safetensors"
 
 echo "=== Готово! ==="
