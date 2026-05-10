@@ -33,8 +33,9 @@ download_civitai() {
     if check_file "$dest"; then echo "[SKIP] $filename"; return 0; fi
     [ -f "$dest" ] && rm -f "$dest"
     echo "[Civitai] $filename (id: $model_id) ..."
-    wget -q --show-progress -c --timeout=120 --tries=3 \
-        -O "$dest" "https://civitai.com/api/download/models/${model_id}?token=${CIVITAI_TOKEN}"
+    curl -L -H "Authorization: Bearer ${CIVITAI_TOKEN}" \
+        "https://civitai.com/api/download/models/${model_id}" \
+        -o "$dest"
     if check_file "$dest"; then echo "[OK] $filename"
     else echo "[FAIL] $filename"; rm -f "$dest"; fi
 }
@@ -186,6 +187,7 @@ download_file \
     "https://github.com/ultralytics/assets/releases/download/v8.3.0/yolo11m-seg.pt" \
     "$MODELS_DIR/ultralytics/segm" "yolo11m-seg.pt"
 download_civitai "1354472" "$MODELS_DIR/ultralytics/segm" "ntd11_anime_nsfw_segm_v5-variant1.pt"
+
 # =============================================================================
 echo "=== 12. LoRA ==="
 mkdir -p "$MODELS_DIR/loras/Pony/style"
