@@ -1,294 +1,85 @@
 #!/bin/bash
+
 COMFY_DIR="/workspace/ComfyUI"
 CUSTOM_NODES_DIR="$COMFY_DIR/custom_nodes"
 MODELS_DIR="$COMFY_DIR/models"
 VENV_PYTHON="/venv/main/bin/python"
 CIVITAI_TOKEN="93edfd8cf30d4caf7cdb82d6a92c475b"
-MIN_SIZE=1048576
-
-check_file() {
-    local path="$1"
-    if [ -f "$path" ] && [ "$(stat -c%s "$path" 2>/dev/null || echo 0)" -gt "$MIN_SIZE" ]; then
-        return 0
-    fi
-    return 1
-}
 
 download_file() {
-    local url="$1" dir="$2" filename="$3"
-    local dest="$dir/$filename"
+    local url=$1
+    local dir=$2
+    local filename=$3
+    echo "Скачивание $filename в $dir..."
     mkdir -p "$dir"
-    if check_file "$dest"; then echo "[SKIP] $filename"; return 0; fi
-    [ -f "$dest" ] && rm -f "$dest"
-    echo "[DL] $filename ..."
-    wget -q --show-progress -c --timeout=60 --tries=3 -O "$dest" "$url"
-    if check_file "$dest"; then echo "[OK] $filename"
-    else echo "[FAIL] $filename"; rm -f "$dest"; fi
+    wget -c -O "$dir/$filename" "$url"
 }
 
 download_civitai() {
-    local model_id="$1" dir="$2" filename="$3"
-    local dest="$dir/$filename"
+    local url=$1
+    local dir=$2
+    local filename=$3
+    echo "Скачивание $filename с Civitai в $dir..."
     mkdir -p "$dir"
-    if check_file "$dest"; then echo "[SKIP] $filename"; return 0; fi
-    [ -f "$dest" ] && rm -f "$dest"
-    echo "[Civitai] $filename (id: $model_id) ..."
-    curl -L -H "Authorization: Bearer ${CIVITAI_TOKEN}" \
-        "https://civitai.com/api/download/models/${model_id}" \
-        -o "$dest"
-    if check_file "$dest"; then echo "[OK] $filename"
-    else echo "[FAIL] $filename"; rm -f "$dest"; fi
+    curl -L -H "Authorization: Bearer ${CIVITAI_TOKEN}" "$url" -o "$dir/$filename"
 }
 
-download_civitai_mirror() {
-    local model_id="$1" dir="$2" filename="$3"
-    local dest="$dir/$filename"
-    mkdir -p "$dir"
-    if check_file "$dest"; then echo "[SKIP] $filename"; return 0; fi
-    [ -f "$dest" ] && rm -f "$dest"
-    echo "[Mirror] $filename ..."
-    wget -q --show-progress -c --timeout=120 --tries=3 \
-        -O "$dest" "https://civitai.red/api/download/models/${model_id}?type=Model&format=SafeTensor"
-    if check_file "$dest"; then echo "[OK] $filename"
-    else echo "[FAIL] $filename"; rm -f "$dest"; fi
-}
-
-# =============================================================================
-echo "=== 1. Обновление ComfyUI ==="
-cd "$COMFY_DIR" || exit 1
-git pull
-$VENV_PYTHON -m pip install -q -r requirements.txt
-
-# =============================================================================
-echo "=== 2. Custom Nodes ==="
+echo "=== 1. Установка кастомных нод ==="
 mkdir -p "$CUSTOM_NODES_DIR"
-cd "$CUSTOM_NODES_DIR" || exit 1
+cd "$CUSTOM_NODES_DIR" || exit
 
-repos=(
-    "https://github.com/ltdrdata/ComfyUI-Impact-Pack.git"
-    "https://github.com/ltdrdata/ComfyUI-Impact-Subpack.git"
-    "https://github.com/ssitu/ComfyUI_UltimateSDUpscale.git"
-    "https://github.com/rgthree/rgthree-comfy.git"
-    "https://github.com/yolain/ComfyUI-Easy-Use.git"
-    "https://github.com/WASasquatch/was-node-suite-comfyui.git"
-    "https://github.com/cubiq/ComfyUI_IPAdapter_plus.git"
-    "https://github.com/adieyal/comfyui-dynamicprompts.git"
-    "https://github.com/Fannovel16/comfyui_controlnet_aux.git"
-    "https://github.com/pythongosssss/ComfyUI-Custom-Scripts.git"
-    "https://github.com/kijai/ComfyUI-KJNodes.git"
-    "https://github.com/BadCafeCode/masquerade-nodes-comfyui.git"
-    "https://github.com/crystian/ComfyUI-Crystools.git"
-    "https://github.com/melMass/comfy_mtb.git"
-    "https://github.com/ltdrdata/ComfyUI-Manager.git"
-    "https://github.com/Suzie1/ComfyUI_Comfyroll_CustomNodes.git"
-    "https://github.com/chflame163/ComfyUI_LayerStyle.git"
-    "https://github.com/willisplummer/ComfyUI-Lora-Manager.git"
-    "https://github.com/KohakuBlueleaf/z-tipo-extension.git"
-    "https://github.com/pamparamm/ComfyUI-ppm.git"
-    "https://github.com/alexopus/ComfyUI-Image-Saver.git"
-    "https://github.com/victorchall/ComfyUI-FBCNN.git"
-    "https://github.com/SanxRoz/ComfyUI-Gemini.git"
-)
+git clone https://github.com/ltdrdata/ComfyUI-Impact-Pack.git
+git clone https://github.com/ltdrdata/ComfyUI-Impact-Subpack.git
+git clone https://github.com/ssitu/ComfyUI_UltimateSDUpscale.git
+git clone https://github.com/rgthree/rgthree-comfy.git
+git clone https://github.com/yolain/ComfyUI-Easy-Use.git
+git clone https://github.com/WASasquatch/was-node-suite-comfyui.git
+git clone https://github.com/cubiq/ComfyUI_IPAdapter_plus.git
+git clone https://github.com/adieyal/comfyui-dynamicprompts.git
 
-for repo in "${repos[@]}"; do
-    dir_name=$(basename "$repo" .git)
-    if [ ! -d "$dir_name" ]; then
-        git clone --depth=1 "$repo" && echo "[OK] $dir_name"
-    else
-        echo "[SKIP] $dir_name"
-    fi
-done
+echo "=== 2. Установка Python-зависимостей ==="
+cd "$COMFY_DIR" || exit
 
-# =============================================================================
-echo "=== 3. Python зависимости ==="
-cd "$COMFY_DIR" || exit 1
-$VENV_PYTHON -m pip install -q --upgrade pip
-$VENV_PYTHON -m pip install -q \
-    opencv-python-headless numba dynamicprompts piexif ultralytics dill \
-    insightface onnxruntime-gpu facexlib mediapipe deepdiff timm einops \
-    kornia filelock scipy scikit-image pycocotools ftfy python-dateutil \
-    openai requests rembg tipo-kgen
-$VENV_PYTHON -m pip install -q \
-    git+https://github.com/facebookresearch/segment-anything.git
-[ -f "$CUSTOM_NODES_DIR/ComfyUI-Impact-Pack/install.py" ] && \
+$VENV_PYTHON -m pip install opencv-python-headless numba dynamicprompts piexif ultralytics dill
+$VENV_PYTHON -m pip install git+https://github.com/facebookresearch/segment-anything.git
+
+if [ -f "$CUSTOM_NODES_DIR/ComfyUI-Impact-Pack/install.py" ]; then
     $VENV_PYTHON "$CUSTOM_NODES_DIR/ComfyUI-Impact-Pack/install.py"
-for node_dir in \
-    was-node-suite-comfyui ComfyUI-Easy-Use comfyui-dynamicprompts \
-    comfyui_controlnet_aux ComfyUI-KJNodes ComfyUI_LayerStyle \
-    ComfyUI-Crystools z-tipo-extension ComfyUI-ppm \
-    ComfyUI-Image-Saver ComfyUI-FBCNN ComfyUI-Gemini; do
-    req="$CUSTOM_NODES_DIR/$node_dir/requirements.txt"
-    [ -f "$req" ] && $VENV_PYTHON -m pip install -q -r "$req" || true
-done
-
-# =============================================================================
-echo "=== 4. Checkpoint ==="
-download_civitai "1599543" \
-    "$MODELS_DIR/checkpoints/Illustrious/realistic" \
-    "illustriousRealismBy_v10VAE.safetensors"
-
-# =============================================================================
-echo "=== 5. VAE ==="
-download_file \
-    "https://huggingface.co/madebyollin/sdxl-vae-fp16-fix/resolve/main/sdxl_vae.safetensors" \
-    "$MODELS_DIR/vae" "sdxl_vae.safetensors"
-
-# =============================================================================
-echo "=== 6. CLIP Vision ==="
-download_file \
-    "https://huggingface.co/h94/IP-Adapter/resolve/main/models/image_encoder/model.safetensors" \
-    "$MODELS_DIR/clip_vision" "CLIP-ViT-H-14-laion2B-s32b-b79k.safetensors"
-download_file \
-    "https://huggingface.co/h94/IP-Adapter/resolve/main/sdxl_models/image_encoder/model.safetensors" \
-    "$MODELS_DIR/clip_vision" "CLIP-ViT-bigG-14-laion2B-39B-b160k.safetensors"
-download_file \
-    "https://huggingface.co/stabilityai/control-lora/resolve/main/revision/clip_vision_g.safetensors" \
-    "$MODELS_DIR/clip_vision" "clip_vision_g.safetensors"
-
-# =============================================================================
-echo "=== 7. IPAdapter ==="
-download_file \
-    "https://huggingface.co/h94/IP-Adapter-FaceID/resolve/main/ip-adapter-faceid-plusv2_sdxl.bin" \
-    "$MODELS_DIR/ipadapter" "ip-adapter-faceid-plusv2_sdxl.bin"
-download_civitai "1121145" "$MODELS_DIR/ipadapter" "noobIPAMARK1_mark1.safetensors"
-
-# =============================================================================
-echo "=== 8. ControlNet ==="
-download_file \
-    "https://huggingface.co/stabilityai/control-lora/resolve/main/control-LoRAs-rank256/control-lora-canny-rank256.safetensors" \
-    "$MODELS_DIR/controlnet" "control-lora-canny-rank256.safetensors"
-download_civitai "1243766" "$MODELS_DIR/controlnet" "noobaiXLControlnet_openposeModel.safetensors"
-
-# =============================================================================
-echo "=== 9. Upscale ==="
-download_file \
-    "https://huggingface.co/FacehugmanIII/4x_foolhardy_Remacri/resolve/main/4x_foolhardy_Remacri.pth" \
-    "$MODELS_DIR/upscale_models" "4x_foolhardy_Remacri.pth"
-
-# =============================================================================
-echo "=== 10. SAM ==="
-download_file \
-    "https://dl.fbaipublicfiles.com/segment_anything/sam_vit_b_01ec64.pth" \
-    "$MODELS_DIR/sams" "sam_vit_b_01ec64.pth"
-
-# =============================================================================
-echo "=== 11. Ultralytics ==="
-download_file \
-    "https://huggingface.co/Bingsu/adetailer/resolve/main/face_yolov9c.pt" \
-    "$MODELS_DIR/ultralytics/bbox" "face_yolov9c.pt"
-download_file \
-    "https://huggingface.co/Bingsu/adetailer/resolve/main/hand_yolov8s.pt" \
-    "$MODELS_DIR/ultralytics/bbox" "hand_yolov8s.pt"
-download_file \
-    "https://huggingface.co/Bingsu/adetailer/resolve/main/hand_yolov9c.pt" \
-    "$MODELS_DIR/ultralytics/bbox" "hand_yolov9c.pt"
-download_civitai "1191574" "$MODELS_DIR/ultralytics/bbox" "Eyeful_v2-Paired.pt"
-download_file \
-    "https://github.com/ultralytics/assets/releases/download/v8.3.0/yolo11m-seg.pt" \
-    "$MODELS_DIR/ultralytics/segm" "yolo11m-seg.pt"
-download_civitai "1354472" "$MODELS_DIR/ultralytics/segm" "ntd11_anime_nsfw_segm_v5-variant1.pt"
-
-# =============================================================================
-echo "=== 12. LoRA ==="
-mkdir -p "$MODELS_DIR/loras/Pony/style"
-mkdir -p "$MODELS_DIR/loras/Pony/realistic"
-mkdir -p "$MODELS_DIR/loras/Illustrious/concept"
-
-download_civitai "2172230" "$MODELS_DIR/loras" "devmgf_Style.safetensors"
-download_civitai "586803"  "$MODELS_DIR/loras" "incase_style_v3-1_ponyxl_ilff.safetensors"
-download_civitai "1387728" "$MODELS_DIR/loras" "Jolly_Jacks_biggest_beasts_Illustrious.safetensors"
-download_civitai "1145311" "$MODELS_DIR/loras" "round_breasts-IL-1.0.safetensors"
-download_civitai "1189052" "$MODELS_DIR/loras" "incoth.safetensors"
-download_civitai "1537611" "$MODELS_DIR/loras" "nb-c_v2_IL-000025.safetensors"
-download_civitai "1447787" "$MODELS_DIR/loras" "Matte_Skin_Illustrious_v4.safetensors"
-download_civitai "2213606" "$MODELS_DIR/loras" "smooth_soft_skin.safetensors"
-download_civitai "1835318" "$MODELS_DIR/loras" "Breast_Size_Slider_IL_V2.safetensors"
-download_civitai "2148484" "$MODELS_DIR/loras" "Femenine_body_hq_illu.safetensors"
-download_civitai "1384096" "$MODELS_DIR/loras" "Narrow_Waist_ILXL.safetensors"
-download_civitai "481798"  "$MODELS_DIR/loras" "Sinozick_Style_XL_Pony.safetensors"
-download_civitai "1047254" "$MODELS_DIR/loras" "g0th1cPXL.safetensors"
-download_civitai "1014562" "$MODELS_DIR/loras" "Expressive_H-000001.safetensors"
-download_civitai "1058506" "$MODELS_DIR/loras" "Spray_Tan_Slider_Pony.safetensors"
-download_civitai "2082538" "$MODELS_DIR/loras" "AmateurStyle_v3_PONY_REALISM.safetensors"
-download_civitai "907787"  "$MODELS_DIR/loras" "amateur_photo_v2.safetensors"
-download_civitai "870027"  "$MODELS_DIR/loras" "igbaddie-PN.safetensors"
-download_civitai "829397"  "$MODELS_DIR/loras/Pony/style"          "amateur_style_v1_pony.safetensors"
-download_civitai "1062449" "$MODELS_DIR/loras/Pony/realistic"      "Pony_Realism_Slider.safetensors"
-download_civitai "1113756" "$MODELS_DIR/loras/Illustrious/concept" "Eyes_for_Illustrious_Lora_Perfect_anime_eyes.safetensors"
-download_civitai "1253891" "$MODELS_DIR/loras/Illustrious/concept" "detailed_hand_focus_illustriousXL_v1.1.safetensors"
-download_civitai_mirror "2300536" "$MODELS_DIR/loras/Illustrious/concept" "Hyper_Muscles_V4.2.safetensors"
-
-# =============================================================================
-echo ""
-echo "=== ИТОГОВАЯ ПРОВЕРКА ==="
-MISSING=0
-
-check_report() {
-    if check_file "$1"; then echo "  [OK] $2"
-    else echo "  [!!] ОТСУТСТВУЕТ: $2"; MISSING=$((MISSING + 1)); fi
-}
-
-echo "--- Checkpoints ---"
-check_report "$MODELS_DIR/checkpoints/Illustrious/realistic/illustriousRealismBy_v10VAE.safetensors" "illustriousRealismBy_v10VAE"
-
-echo "--- VAE ---"
-check_report "$MODELS_DIR/vae/sdxl_vae.safetensors" "sdxl_vae"
-
-echo "--- CLIP Vision ---"
-check_report "$MODELS_DIR/clip_vision/CLIP-ViT-H-14-laion2B-s32b-b79k.safetensors" "CLIP-ViT-H-14"
-check_report "$MODELS_DIR/clip_vision/CLIP-ViT-bigG-14-laion2B-39B-b160k.safetensors" "CLIP-ViT-bigG-14"
-check_report "$MODELS_DIR/clip_vision/clip_vision_g.safetensors" "clip_vision_g"
-
-echo "--- IPAdapter ---"
-check_report "$MODELS_DIR/ipadapter/ip-adapter-faceid-plusv2_sdxl.bin" "ip-adapter-faceid-plusv2_sdxl"
-check_report "$MODELS_DIR/ipadapter/noobIPAMARK1_mark1.safetensors" "noobIPAMARK1_mark1"
-
-echo "--- ControlNet ---"
-check_report "$MODELS_DIR/controlnet/control-lora-canny-rank256.safetensors" "control-lora-canny-rank256"
-check_report "$MODELS_DIR/controlnet/noobaiXLControlnet_openposeModel.safetensors" "noobaiXL_openpose"
-
-echo "--- Upscale ---"
-check_report "$MODELS_DIR/upscale_models/4x_foolhardy_Remacri.pth" "4x_foolhardy_Remacri"
-
-echo "--- SAM ---"
-check_report "$MODELS_DIR/sams/sam_vit_b_01ec64.pth" "sam_vit_b"
-
-echo "--- Ultralytics ---"
-check_report "$MODELS_DIR/ultralytics/bbox/face_yolov9c.pt" "face_yolov9c"
-check_report "$MODELS_DIR/ultralytics/bbox/hand_yolov8s.pt" "hand_yolov8s"
-check_report "$MODELS_DIR/ultralytics/bbox/hand_yolov9c.pt" "hand_yolov9c"
-check_report "$MODELS_DIR/ultralytics/bbox/Eyeful_v2-Paired.pt" "Eyeful_v2-Paired"
-check_report "$MODELS_DIR/ultralytics/segm/yolo11m-seg.pt" "yolo11m-seg"
-check_report "$MODELS_DIR/ultralytics/segm/ntd11_anime_nsfw_segm_v5-variant1.pt" "ntd11_segm"
-
-echo "--- LoRA ---"
-check_report "$MODELS_DIR/loras/devmgf_Style.safetensors" "devmgf_Style"
-check_report "$MODELS_DIR/loras/incase_style_v3-1_ponyxl_ilff.safetensors" "incase_style"
-check_report "$MODELS_DIR/loras/Jolly_Jacks_biggest_beasts_Illustrious.safetensors" "Jolly_Jacks"
-check_report "$MODELS_DIR/loras/round_breasts-IL-1.0.safetensors" "round_breasts"
-check_report "$MODELS_DIR/loras/incoth.safetensors" "incoth"
-check_report "$MODELS_DIR/loras/nb-c_v2_IL-000025.safetensors" "nb-c_v2"
-check_report "$MODELS_DIR/loras/Matte_Skin_Illustrious_v4.safetensors" "Matte_Skin"
-check_report "$MODELS_DIR/loras/smooth_soft_skin.safetensors" "smooth_soft_skin"
-check_report "$MODELS_DIR/loras/Breast_Size_Slider_IL_V2.safetensors" "Breast_Size_Slider"
-check_report "$MODELS_DIR/loras/Femenine_body_hq_illu.safetensors" "Femenine_body"
-check_report "$MODELS_DIR/loras/Narrow_Waist_ILXL.safetensors" "Narrow_Waist"
-check_report "$MODELS_DIR/loras/Sinozick_Style_XL_Pony.safetensors" "Sinozick_Style"
-check_report "$MODELS_DIR/loras/g0th1cPXL.safetensors" "g0th1cPXL"
-check_report "$MODELS_DIR/loras/Expressive_H-000001.safetensors" "Expressive_H"
-check_report "$MODELS_DIR/loras/Spray_Tan_Slider_Pony.safetensors" "Spray_Tan_Slider"
-check_report "$MODELS_DIR/loras/AmateurStyle_v3_PONY_REALISM.safetensors" "AmateurStyle_v3"
-check_report "$MODELS_DIR/loras/amateur_photo_v2.safetensors" "amateur_photo_v2"
-check_report "$MODELS_DIR/loras/igbaddie-PN.safetensors" "igbaddie-PN"
-check_report "$MODELS_DIR/loras/Pony/style/amateur_style_v1_pony.safetensors" "amateur_style_pony"
-check_report "$MODELS_DIR/loras/Pony/realistic/Pony_Realism_Slider.safetensors" "Pony_Realism_Slider"
-check_report "$MODELS_DIR/loras/Illustrious/concept/Eyes_for_Illustrious_Lora_Perfect_anime_eyes.safetensors" "Eyes_IL"
-check_report "$MODELS_DIR/loras/Illustrious/concept/detailed_hand_focus_illustriousXL_v1.1.safetensors" "hand_focus_IL"
-check_report "$MODELS_DIR/loras/Illustrious/concept/Hyper_Muscles_V4.2.safetensors" "Hyper_Muscles_V4.2"
-
-echo ""
-if [ "$MISSING" -eq 0 ]; then
-    echo "=== ВСЕ ФАЙЛЫ НА МЕСТЕ — Запускай ComfyUI! ==="
-else
-    echo "=== ВНИМАНИЕ: $MISSING файл(ов) не скачались — смотри [!!] выше ==="
 fi
+
+$VENV_PYTHON -m pip install -r "$CUSTOM_NODES_DIR/was-node-suite-comfyui/requirements.txt"
+$VENV_PYTHON -m pip install -r "$CUSTOM_NODES_DIR/ComfyUI-Easy-Use/requirements.txt"
+$VENV_PYTHON -m pip install -r "$CUSTOM_NODES_DIR/comfyui-dynamicprompts/requirements.txt"
+
+echo "=== 3. Загрузка базовых моделей ==="
+download_file "https://huggingface.co/madebyollin/sdxl-vae-fp16-fix/resolve/main/sdxl_vae.safetensors" "$MODELS_DIR/vae" "sdxl_vae.safetensors"
+download_file "https://huggingface.co/FacehugmanIII/4x_foolhardy_Remacri/resolve/main/4x_foolhardy_Remacri.pth" "$MODELS_DIR/upscale_models" "4x_foolhardy_Remacri.pth"
+download_file "https://dl.fbaipublicfiles.com/segment_anything/sam_vit_b_01ec64.pth" "$MODELS_DIR/sams" "sam_vit_b_01ec64.pth"
+download_file "https://huggingface.co/h94/IP-Adapter-FaceID/resolve/main/ip-adapter-faceid-plusv2_sdxl.bin" "$MODELS_DIR/ipadapter" "ip-adapter-faceid-plusv2_sdxl.bin"
+download_file "https://huggingface.co/h94/IP-Adapter/resolve/main/models/image_encoder/model.safetensors" "$MODELS_DIR/clip_vision" "CLIP-ViT-H-14-laion2B-s32b-b79k.safetensors"
+
+echo "=== 4. Загрузка Ultralytics моделей ==="
+download_file "https://huggingface.co/Bingsu/adetailer/resolve/main/face_yolov9c.pt" "$MODELS_DIR/ultralytics/bbox" "face_yolov9c.pt"
+download_file "https://huggingface.co/Bingsu/adetailer/resolve/main/face_yolov8n.pt" "$MODELS_DIR/ultralytics/bbox" "head_yolov8n.pt"
+download_file "https://huggingface.co/Bingsu/adetailer/resolve/main/hand_yolov9c.pt" "$MODELS_DIR/ultralytics/bbox" "hand_yolov9c.pt"
+
+echo "=== 5. Загрузка Checkpoints ==="
+download_civitai "https://civitai.com/api/download/models/2703578" "$MODELS_DIR/checkpoints" "animij_v9.safetensors"
+download_civitai "https://civitai.com/api/download/models/2167369" "$MODELS_DIR/checkpoints" "waiV150.safetensors"
+download_civitai "https://civitai.com/api/download/models/2110984?type=Model&format=SafeTensor&size=pruned&fp=fp16" "$MODELS_DIR/checkpoints" "babesByStableYogiPony_v60FP16.safetensors"
+
+echo "=== 6. Загрузка LoRA ==="
+download_civitai "https://civitai.com/api/download/models/2172230" "$MODELS_DIR/loras" "devmgf_Style.safetensors"
+download_civitai "https://civitai.com/api/download/models/586803" "$MODELS_DIR/loras" "Gigagirl_v1_ponyXL.safetensors"
+download_civitai "https://civitai.com/api/download/models/1387728" "$MODELS_DIR/loras" "Jolly_Jacks_biggest_beasts_Illustrious.safetensors"
+download_civitai "https://civitai.com/api/download/models/1145311" "$MODELS_DIR/loras" "round_breasts-IL-1.0.safetensors"
+download_civitai "https://civitai.com/api/download/models/1189052" "$MODELS_DIR/loras" "incoth.safetensors"
+download_civitai "https://civitai.com/api/download/models/1537611" "$MODELS_DIR/loras" "nb-c_v2_IL-000025.safetensors"
+download_civitai "https://civitai.com/api/download/models/1447787" "$MODELS_DIR/loras" "Matte_Skin_Illustrious_v4.safetensors"
+download_civitai "https://civitai.com/api/download/models/2213606" "$MODELS_DIR/loras" "smooth_soft_skin.safetensors"
+download_civitai "https://civitai.com/api/download/models/1835318" "$MODELS_DIR/loras" "Breast_Size_Slider.safetensors"
+download_civitai "https://civitai.com/api/download/models/2148484" "$MODELS_DIR/loras" "Femenine_body_hq_illu.safetensors"
+download_civitai "https://civitai.com/api/download/models/1384096" "$MODELS_DIR/loras" "Narrow_Waist_ILXL.safetensors"
+download_civitai "https://civitai.com/api/download/models/481798" "$MODELS_DIR/loras" "Sinozick_style.safetensors"
+
+echo "=== Настройка завершена! ==="
