@@ -1,15 +1,10 @@
 #!/bin/bash
 
 COMFY_DIR="/workspace/ComfyUI"
-# Безопасный фолбек: если переменная пустая, подставляем стандартный путь, чтобы скрипт не падал
-CUSTOM_NODES_DIR="${CUSTOM_NODES_DIR:-$COMFY_DIR/custom_nodes}"
+CUSTOM_NODES_DIR="$CUSTOM_NODES_DIR"
 MODELS_DIR="$COMFY_DIR/models"
 VENV_PYTHON="/venv/main/bin/python"
 CIVITAI_TOKEN="93edfd8cf30d4caf7cdb82d6a92c475b"
-
-# Системные пакеты, без которых компиляция insightface и некоторых нод гарантированно упадет
-echo "=== 0. Подготовка системных зависимостей (GCC, Python-dev) ==="
-apt-get update -y -q && apt-get install -y -q build-essential python3-dev wget curl git
 
 download_file() {
     local url=$1
@@ -17,8 +12,7 @@ download_file() {
     local filename=$3
     echo "Скачивание $filename в $dir..."
     mkdir -p "$dir"
-    # -q скрывает тонны текстового мусора, оставляя только чистый прогресс-бар
-    wget -q --show-progress -c -O "$dir/$filename" "$url"
+    wget -c -O "$dir/$filename" "$url"
 }
 
 download_civitai() {
@@ -27,69 +21,48 @@ download_civitai() {
     local filename=$3
     echo "Скачивание $filename с Civitai в $dir..."
     mkdir -p "$dir"
-    # -f (fail) не дает curl создать пустой или битый файл, если Civitai вернет ошибку (401/404)
-    if curl -f -L -H "Authorization: Bearer ${CIVITAI_TOKEN}" "$url" -o "$dir/$filename"; then
-        echo "✅ Успешно скачано: $filename"
-    else
-        echo "❌ Ошибка скачивания $filename! Проверь токен или ID модели в Civitai."
-    fi
+    curl -L -H "Authorization: Bearer ${CIVITAI_TOKEN}" "$url" -o "$dir/$filename"
 }
 
 echo "=== 1. Установка кастомных нод ==="
 mkdir -p "$CUSTOM_NODES_DIR"
 cd "$CUSTOM_NODES_DIR" || exit
 
-# Функция для безопасного клонирования (если папка уже есть — обновляет или пропускает, не вызывая краш скрипта)
-safe_clone() {
-    local repo=$1
-    local folder=$(basename "$repo" .git)
-    if [ -d "$folder" ]; then
-        echo "Нода $folder уже существует, пропускаем клонирование."
-    else
-        git clone "$repo"
-    fi
-}
-
-safe_clone https://github.com/ltdrdata/ComfyUI-Impact-Pack.git
-safe_clone https://github.com/ltdrdata/ComfyUI-Impact-Subpack.git
-safe_clone https://github.com/ssitu/ComfyUI_UltimateSDUpscale.git
-safe_clone https://github.com/rgthree/rgthree-comfy.git
-safe_clone https://github.com/yolain/ComfyUI-Easy-Use.git
-safe_clone https://github.com/WASasquatch/was-node-suite-comfyui.git
-safe_clone https://github.com/cubiq/ComfyUI_IPAdapter_plus.git
-safe_clone https://github.com/adieyal/comfyui-dynamicprompts.git
-safe_clone https://github.com/kijai/comfyui-kjnodes.git
-safe_clone https://github.com/pythongosssss/ComfyUI-Custom-Scripts.git
-safe_clone https://github.com/Miosp/ComfyUI-FBCNN.git
-safe_clone https://github.com/alexopus/ComfyUI-Image-Saver.git
-safe_clone https://github.com/zmwv823/comfyui-gemini.git
-safe_clone https://github.com/RockOfRock/ComfyUI_Comfyroll_CustomNodes.git
-safe_clone https://github.com/bash-bunni/mikey_nodes.git
-safe_clone https://github.com/KohakuBlueleaf/z-tipo-extension.git
-safe_clone https://github.com/melMass/comfyui-lora-manager.git
-safe_clone https://github.com/gogod666/ComfyUI-PPM.git
+git clone https://github.com/ltdrdata/ComfyUI-Impact-Pack.git
+git clone https://github.com/ltdrdata/ComfyUI-Impact-Subpack.git
+git clone https://github.com/ssitu/ComfyUI_UltimateSDUpscale.git
+git clone https://github.com/rgthree/rgthree-comfy.git
+git clone https://github.com/yolain/ComfyUI-Easy-Use.git
+git clone https://github.com/WASasquatch/was-node-suite-comfyui.git
+git clone https://github.com/cubiq/ComfyUI_IPAdapter_plus.git
+git clone https://github.com/adieyal/comfyui-dynamicprompts.git
+git clone https://github.com/kijai/comfyui-kjnodes.git
+git clone https://github.com/pythongosssss/ComfyUI-Custom-Scripts.git
+git clone https://github.com/Miosp/ComfyUI-FBCNN.git
+git clone https://github.com/alexopus/ComfyUI-Image-Saver.git
+git clone https://github.com/zmwv823/comfyui-gemini.git
+git clone https://github.com/RockOfRock/ComfyUI_Comfyroll_CustomNodes.git
+git clone https://github.com/bash-bunni/mikey_nodes.git
+git clone https://github.com/KohakuBlueleaf/z-tipo-extension.git
+git clone https://github.com/melMass/comfyui-lora-manager.git
+git clone https://github.com/gogod666/ComfyUI-PPM.git
 
 echo "=== 2. Установка Python-зависимостей ==="
 cd "$COMFY_DIR" || exit
 
-# Обновляем базовые утилиты сборки пакетов во избежание OOM и старых конфликтов pip
-$VENV_PYTHON -m pip install --upgrade --no-cache-dir pip setuptools wheel
-
-$VENV_PYTHON -m pip install --no-cache-dir opencv-python-headless numba dynamicprompts piexif ultralytics dill scipy imageio insightface google-generativeai
-$VENV_PYTHON -m pip install --no-cache-dir git+https://github.com/facebookresearch/segment-anything.git
+$VENV_PYTHON -m pip install opencv-python-headless numba dynamicprompts piexif ultralytics dill scipy imageio insightface google-generativeai
+$VENV_PYTHON -m pip install git+https://github.com/facebookresearch/segment-anything.git
 
 if [ -f "$CUSTOM_NODES_DIR/ComfyUI-Impact-Pack/install.py" ]; then
     $VENV_PYTHON "$CUSTOM_NODES_DIR/ComfyUI-Impact-Pack/install.py"
 fi
 
-# Ставим зависимости нод с флагом --upgrade, чтобы requirements не затирали рабочие версии друг друга
-$VENV_PYTHON -m pip install --upgrade --no-cache-dir -r "$CUSTOM_NODES_DIR/was-node-suite-comfyui/requirements.txt"
-$VENV_PYTHON -m pip install --upgrade --no-cache-dir -r "$CUSTOM_NODES_DIR/ComfyUI-Easy-Use/requirements.txt"
-$VENV_PYTHON -m pip install --upgrade --no-cache-dir -r "$CUSTOM_NODES_DIR/comfyui-dynamicprompts/requirements.txt"
-$VENV_PYTHON -m pip install --upgrade --no-cache-dir -r "$CUSTOM_NODES_DIR/comfyui-kjnodes/requirements.txt"
+$VENV_PYTHON -m pip install -r "$CUSTOM_NODES_DIR/was-node-suite-comfyui/requirements.txt"
+$VENV_PYTHON -m pip install -r "$CUSTOM_NODES_DIR/ComfyUI-Easy-Use/requirements.txt"
+$VENV_PYTHON -m pip install -r "$CUSTOM_NODES_DIR/comfyui-dynamicprompts/requirements.txt"
+$VENV_PYTHON -m pip install -r "$CUSTOM_NODES_DIR/comfyui-kjnodes/requirements.txt"
 
 echo "=== 3. Загрузка базовых моделей ==="
-# Ссылку на VAE удалил согласно задаче
 download_file "https://huggingface.co/FacehugmanIII/4x_foolhardy_Remacri/resolve/main/4x_foolhardy_Remacri.pth" "$MODELS_DIR/upscale_models" "4x_foolhardy_Remacri.pth"
 download_file "https://dl.fbaipublicfiles.com/segment_anything/sam_vit_b_01ec64.pth" "$MODELS_DIR/sams" "sam_vit_b_01ec64.pth"
 
@@ -97,7 +70,7 @@ echo "=== 4. Загрузка моделей IP-Adapter и CLIP Vision ==="
 download_file "https://huggingface.co/h94/IP-Adapter-FaceID/resolve/main/ip-adapter-faceid-plusv2_sdxl.bin" "$MODELS_DIR/ipadapter" "ip-adapter-faceid-plusv2_sdxl.bin"
 download_file "https://huggingface.co/h94/IP-Adapter/resolve/main/models/image_encoder/model.safetensors" "$MODELS_DIR/clip_vision" "CLIP-ViT-H-14-laion2B-s32b-b79k.safetensors"
 
-# Системные файлы для работы InsightFace
+# Системные файлы для работы InsightFace (либы FaceID)
 mkdir -p /root/.insightface/models
 download_file "https://github.com/deepinsight/insightface/releases/download/v0.7/buffalo_l.zip" "/root/.insightface/models" "buffalo_l.zip"
 
@@ -136,7 +109,7 @@ download_civitai "https://civitai.com/api/download/models/1359711" "$MODELS_DIR/
 download_civitai "https://civitai.com/api/download/models/1755959" "$MODELS_DIR/loras" "amateur_photo_v2.safetensors"
 download_civitai "https://civitai.com/api/download/models/556208" "$MODELS_DIR/loras" "igbaddie-PN.safetensors"
 
-# Скрытые LoRA для пайплайнов инпейнтинга
+# Скрытые LoRA, прописанные жестко в пайплайнах инпейнтинга (ADetailer Edit Pipes)
 mkdir -p "$MODELS_DIR/loras/Illustrious/concept"
 download_civitai "https://civitai.com/api/download/models/255551" "$MODELS_DIR/loras/Illustrious/concept" "Eyes_for_Illustrious_Lora_Perfect_anime_eyes.safetensors"
 download_civitai "https://civitai.com/api/download/models/782627" "$MODELS_DIR/loras" "detailed_hand_focus_style_illustriousXL_v1.1.safetensors"
