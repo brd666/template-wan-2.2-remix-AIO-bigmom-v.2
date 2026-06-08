@@ -1,80 +1,241 @@
 #!/bin/bash
+set -euo pipefail
 
-COMFY_DIR="/workspace/ComfyUI"
-CUSTOM_NODES_DIR="$COMFY_DIR/custom_nodes"
-MODELS_DIR="$COMFY_DIR/models"
-VENV_PYTHON="/venv/main/bin/python"
-CIVITAI_TOKEN="93edfd8cf30d4caf7cdb82d6a92c475b"
-
-download_file() {
-    local url=$1
-    local dir=$2
-    local filename=$3
-    echo "Скачивание $filename в $dir..."
-    mkdir -p "$dir"
-    wget -c -O "$dir/$filename" "$url"
-}
-
-download_civitai() {
-    local url=$1
-    local dir=$2
-    local filename=$3
-    echo "Скачивание $filename с Civitai в $dir..."
-    mkdir -p "$dir"
-    curl -L -H "Authorization: Bearer ${CIVITAI_TOKEN}" "$url" -o "$dir/$filename"
-}
-
-echo "=== 1. Установка кастомных нод ==="
-mkdir -p "$CUSTOM_NODES_DIR"
-cd "$CUSTOM_NODES_DIR" || exit
-
-git clone https://github.com/ltdrdata/ComfyUI-Impact-Pack.git
-git clone https://github.com/ltdrdata/ComfyUI-Impact-Subpack.git
-git clone https://github.com/ssitu/ComfyUI_UltimateSDUpscale.git
-git clone https://github.com/rgthree/rgthree-comfy.git
-git clone https://github.com/yolain/ComfyUI-Easy-Use.git
-git clone https://github.com/WASasquatch/was-node-suite-comfyui.git
-git clone https://github.com/cubiq/ComfyUI_IPAdapter_plus.git
-git clone https://github.com/adieyal/comfyui-dynamicprompts.git
-
-echo "=== 2. Установка Python-зависимостей ==="
-cd "$COMFY_DIR" || exit
-
-$VENV_PYTHON -m pip install opencv-python-headless numba dynamicprompts piexif ultralytics dill
-$VENV_PYTHON -m pip install git+https://github.com/facebookresearch/segment-anything.git
-
-if [ -f "$CUSTOM_NODES_DIR/ComfyUI-Impact-Pack/install.py" ]; then
-    $VENV_PYTHON "$CUSTOM_NODES_DIR/ComfyUI-Impact-Pack/install.py"
+if [ -f /venv/main/bin/activate ]; then
+  source /venv/main/bin/activate
 fi
 
-$VENV_PYTHON -m pip install -r "$CUSTOM_NODES_DIR/was-node-suite-comfyui/requirements.txt"
-$VENV_PYTHON -m pip install -r "$CUSTOM_NODES_DIR/ComfyUI-Easy-Use/requirements.txt"
-$VENV_PYTHON -m pip install -r "$CUSTOM_NODES_DIR/comfyui-dynamicprompts/requirements.txt"
+WORKSPACE="${WORKSPACE:-/workspace}"
+COMFYUI_DIR="${WORKSPACE}/ComfyUI"
 
-echo "=== 3. Загрузка базовых моделей ==="
-download_file "https://huggingface.co/madebyollin/sdxl-vae-fp16-fix/resolve/main/sdxl_vae.safetensors" "$MODELS_DIR/vae" "sdxl_vae.safetensors"
-download_file "https://huggingface.co/FacehugmanIII/4x_foolhardy_Remacri/resolve/main/4x_foolhardy_Remacri.pth" "$MODELS_DIR/upscale_models" "4x_foolhardy_Remacri.pth"
-download_file "https://dl.fbaipublicfiles.com/segment_anything/sam_vit_b_01ec64.pth" "$MODELS_DIR/sams" "sam_vit_b_01ec64.pth"
-download_file "https://huggingface.co/h94/IP-Adapter-FaceID/resolve/main/ip-adapter-faceid-plusv2_sdxl.bin" "$MODELS_DIR/ipadapter" "ip-adapter-faceid-plusv2_sdxl.bin"
-download_file "https://huggingface.co/h94/IP-Adapter/resolve/main/models/image_encoder/model.safetensors" "$MODELS_DIR/clip_vision" "CLIP-ViT-H-14-laion2B-s32b-b79k.safetensors"
+echo "=== ComfyUI Provisioning Start ==="
 
-echo "=== 4. Загрузка Ultralytics моделей ==="
-download_file "https://huggingface.co/Bingsu/adetailer/resolve/main/face_yolov9c.pt" "$MODELS_DIR/ultralytics/bbox" "face_yolov9c.pt"
-download_file "https://huggingface.co/Bingsu/adetailer/resolve/main/face_yolov8n.pt" "$MODELS_DIR/ultralytics/bbox" "head_yolov8n.pt"
-download_file "https://huggingface.co/Bingsu/adetailer/resolve/main/hand_yolov9c.pt" "$MODELS_DIR/ultralytics/bbox" "hand_yolov9c.pt"
+APT_PACKAGES=()
 
-echo "=== 5. Загрузка Checkpoints ==="
-download_civitai "https://civitai.com/api/download/models/1643845" "$MODELS_DIR/checkpoints" "illustriousRealismByKlaabu.safetensors"
+PIP_PACKAGES=(
+  "opencv-python-headless"
+  "numba"
+  "dynamicprompts"
+  "piexif"
+  "ultralytics"
+  "dill"
+)
 
-echo "=== 6. Загрузка LoRA ==="
-download_civitai "https://civitai.com/api/download/models/1189052" "$MODELS_DIR/loras" "incase_style_v3-1_ponyxl_ilff.safetensors"
-download_civitai "https://civitai.com/api/download/models/382152" "$MODELS_DIR/loras" "Expressive_H-000001.safetensors"
-download_civitai "https://civitai.com/api/download/models/1835318" "$MODELS_DIR/loras" "Breast_Size_Slider.safetensors"
-download_civitai "https://civitai.com/api/download/models/2300536" "$MODELS_DIR/loras" "Hyper_Muscles_V4.2.safetensors"
-download_civitai "https://civitai.com/api/download/models/1272693" "$MODELS_DIR/loras" "Spray_Tan_Slider_Pony.safetensors"
-download_civitai "https://civitai.com/api/download/models/1253021" "$MODELS_DIR/loras" "Pony_Realism_Slider.safetensors"
-download_civitai "https://civitai.com/api/download/models/1359711" "$MODELS_DIR/loras" "AmateurStyle_v3_PONY_REALISM.safetensors"
-download_civitai "https://civitai.com/api/download/models/1755959" "$MODELS_DIR/loras" "amateur_photo_v2.safetensors"
-download_civitai "https://civitai.com/api/download/models/556208" "$MODELS_DIR/loras" "igbaddie-PN.safetensors"
+NODES=(
+  # --- из рабочего скрипта ---
+  "https://github.com/kijai/ComfyUI-WanVideoWrapper"
+  "https://github.com/chflame163/ComfyUI_LayerStyle"
+  "https://github.com/kijai/ComfyUI-KJNodes"
+  "https://github.com/Kosinkadink/ComfyUI-VideoHelperSuite"
+  "https://github.com/kijai/ComfyUI-segment-anything-2"
+  "https://github.com/cubiq/ComfyUI_essentials"
+  "https://github.com/fq393/ComfyUI-ZMG-Nodes"
+  "https://github.com/kijai/ComfyUI-WanAnimatePreprocess"
+  "https://github.com/jnxmx/ComfyUI_HuggingFace_Downloader"
+  "https://github.com/teskor-hub/NEW-UTILS.git"
 
-echo "=== Настройка завершена! ==="
+  # --- общие (без дублей) ---
+  "https://github.com/rgthree/rgthree-comfy.git"
+  "https://github.com/yolain/ComfyUI-Easy-Use.git"
+
+  # --- из твоего скрипта ---
+  "https://github.com/ltdrdata/ComfyUI-Impact-Pack.git"
+  "https://github.com/ltdrdata/ComfyUI-Impact-Subpack.git"
+  "https://github.com/ssitu/ComfyUI_UltimateSDUpscale.git"
+  "https://github.com/WASasquatch/was-node-suite-comfyui.git"
+  "https://github.com/cubiq/ComfyUI_IPAdapter_plus.git"
+  "https://github.com/adieyal/comfyui-dynamicprompts.git"
+
+  # --- недостающие для этого workflow ---
+  "https://github.com/Fannovel16/comfyui_controlnet_aux.git"
+  "https://github.com/alexopus/ComfyUI-Image-Saver.git"
+  "https://github.com/pythongosssss/ComfyUI-Custom-Scripts.git"
+  "https://github.com/Miosp/ComfyUI-FBCNN.git"
+)
+
+VAE_MODELS=(
+  "https://huggingface.co/madebyollin/sdxl-vae-fp16-fix/resolve/main/sdxl_vae.safetensors"
+)
+
+UPSCALE_MODELS=(
+  "https://huggingface.co/FacehugmanIII/4x_foolhardy_Remacri/resolve/main/4x_foolhardy_Remacri.pth"
+)
+
+SAM_MODELS=(
+  "https://dl.fbaipublicfiles.com/segment_anything/sam_vit_b_01ec64.pth"
+)
+
+IPADAPTER_MODELS=(
+  "https://huggingface.co/h94/IP-Adapter-FaceID/resolve/main/ip-adapter-faceid-plusv2_sdxl.bin"
+)
+
+ULTRALYTICS_MODELS=(
+  "https://huggingface.co/Bingsu/adetailer/resolve/main/face_yolov9c.pt"
+  "https://huggingface.co/Bingsu/adetailer/resolve/main/face_yolov8n.pt"
+  "https://huggingface.co/Bingsu/adetailer/resolve/main/hand_yolov9c.pt"
+  "https://huggingface.co/Bingsu/adetailer/resolve/main/person_yolov8m-seg.pt"
+  "https://huggingface.co/Tenofas/ComfyUI/resolve/main/ultralytics/bbox/Eyeful_v2-Paired.pt"
+)
+
+CHECKPOINT_MODELS=(
+  "https://civitai.com/api/download/models/1643845"
+  "https://civitai.com/api/download/models/2837020"
+)
+
+LORA_MODELS=(
+  "https://civitai.com/api/download/models/1189052"
+  "https://civitai.com/api/download/models/398847"
+  "https://civitai.com/api/download/models/382152"
+  "https://civitai.com/api/download/models/1835318"
+  "https://civitai.com/api/download/models/2148484"
+  "https://civitai.com/api/download/models/481798"
+  "https://civitai.com/api/download/models/1387728"
+  "https://civitai.com/api/download/models/2172230"
+  "https://civitai.com/api/download/models/2300536"
+  "https://civitai.com/api/download/models/1272693"
+  "https://civitai.com/api/download/models/1253021"
+  "https://civitai.com/api/download/models/1359711"
+  "https://civitai.com/api/download/models/1755959"
+  "https://civitai.com/api/download/models/556208"
+)
+
+provisioning_get_apt_packages() {
+  if [[ ${#APT_PACKAGES[@]} -gt 0 ]]; then
+    echo "Устанавливаем apt packages..."
+    apt-get update
+    apt-get install -y "${APT_PACKAGES[@]}"
+  fi
+}
+
+provisioning_clone_comfyui() {
+  if [[ ! -d "${COMFYUI_DIR}" ]]; then
+    echo "Клонируем ComfyUI..."
+    git clone https://github.com/comfyanonymous/ComfyUI.git "${COMFYUI_DIR}"
+  fi
+  cd "${COMFYUI_DIR}"
+}
+
+provisioning_install_base_reqs() {
+  if [[ -f "${COMFYUI_DIR}/requirements.txt" ]]; then
+    echo "Устанавливаем base requirements..."
+    pip install --no-cache-dir -r "${COMFYUI_DIR}/requirements.txt"
+  fi
+}
+
+provisioning_get_pip_packages() {
+  if [[ ${#PIP_PACKAGES[@]} -gt 0 ]]; then
+    echo "Устанавливаем pip packages..."
+    pip install --no-cache-dir "${PIP_PACKAGES[@]}"
+    pip install --no-cache-dir git+https://github.com/facebookresearch/segment-anything.git
+  fi
+}
+
+provisioning_get_nodes() {
+  mkdir -p "${COMFYUI_DIR}/custom_nodes"
+  cd "${COMFYUI_DIR}/custom_nodes"
+
+  for repo in "${NODES[@]}"; do
+    dir="${repo##*/}"
+    dir="${dir%.git}"
+    path="./${dir}"
+
+    if [[ -d "${path}" ]]; then
+      echo "Обновляем ноду: ${dir}"
+      (
+        cd "${path}"
+        git pull --ff-only 2>/dev/null || {
+          git fetch --all
+          git reset --hard origin/main || true
+        }
+      )
+    else
+      echo "Клонируем ноду: ${dir}"
+      git clone --recursive "${repo}" "${path}" || echo "[!] Clone failed: ${repo}"
+    fi
+
+    if [[ -f "${path}/requirements.txt" ]]; then
+      echo "Зависимости для ${dir}..."
+      pip install --no-cache-dir -r "${path}/requirements.txt" || echo "[!] pip requirements failed for ${dir}"
+    fi
+
+    if [[ -f "${path}/install.py" ]]; then
+      echo "Install script для ${dir}..."
+      python "${path}/install.py" || echo "[!] install.py failed for ${dir}"
+    fi
+  done
+}
+
+provisioning_get_files() {
+  if [[ $# -lt 2 ]]; then
+    return
+  fi
+
+  local dir="$1"
+  shift
+  local files=("$@")
+
+  mkdir -p "${dir}"
+  echo "Скачивание ${#files[@]} файл(ов) → ${dir}..."
+
+  for url in "${files[@]}"; do
+    echo "→ ${url}"
+
+    if [[ "${url}" =~ civitai\.com && -n "${CIVITAI_TOKEN:-}" ]]; then
+      wget -nc --content-disposition --show-progress \
+        -e dotbytes=4M -P "${dir}" \
+        "${url}?token=${CIVITAI_TOKEN}" || echo "[!] Download failed: ${url}"
+
+    elif [[ "${url}" =~ huggingface\.co && -n "${HF_TOKEN:-}" ]]; then
+      wget -nc --content-disposition --show-progress \
+        -e dotbytes=4M -P "${dir}" \
+        --header="Authorization: Bearer ${HF_TOKEN}" \
+        "${url}" || echo "[!] Download failed: ${url}"
+
+    else
+      wget -nc --content-disposition --show-progress \
+        -e dotbytes=4M -P "${dir}" \
+        "${url}" || echo "[!] Download failed: ${url}"
+    fi
+
+    echo ""
+  done
+}
+
+provisioning_start() {
+  echo ""
+  echo "##############################################"
+  echo "# ComfyUI X-MODE SETUP #"
+  echo "##############################################"
+  echo ""
+
+  provisioning_get_apt_packages
+  provisioning_clone_comfyui
+  provisioning_install_base_reqs
+  provisioning_get_nodes
+  provisioning_get_pip_packages
+
+  provisioning_get_files "${COMFYUI_DIR}/models/vae" "${VAE_MODELS[@]}"
+  provisioning_get_files "${COMFYUI_DIR}/models/upscale_models" "${UPSCALE_MODELS[@]}"
+  provisioning_get_files "${COMFYUI_DIR}/models/sams" "${SAM_MODELS[@]}"
+  provisioning_get_files "${COMFYUI_DIR}/models/ipadapter" "${IPADAPTER_MODELS[@]}"
+  provisioning_get_files "${COMFYUI_DIR}/models/ultralytics/bbox" "${ULTRALYTICS_MODELS[@]}"
+  provisioning_get_files "${COMFYUI_DIR}/models/checkpoints" "${CHECKPOINT_MODELS[@]}"
+  provisioning_get_files "${COMFYUI_DIR}/models/loras" "${LORA_MODELS[@]}"
+
+  if [[ -f "${COMFYUI_DIR}/custom_nodes/ComfyUI-Impact-Pack/install.py" ]]; then
+    echo "Running Impact Pack installer..."
+    python "${COMFYUI_DIR}/custom_nodes/ComfyUI-Impact-Pack/install.py" || echo "[!] Impact Pack install.py failed"
+  fi
+
+  echo ""
+  echo "Provisioning complete → Starting ComfyUI..."
+  echo ""
+}
+
+if [[ ! -f /.noprovisioning ]]; then
+  provisioning_start
+fi
+
+echo "=== Запуск ComfyUI ==="
+cd "${COMFYUI_DIR}"
+python main.py --listen 0.0.0.0 --port 8188
