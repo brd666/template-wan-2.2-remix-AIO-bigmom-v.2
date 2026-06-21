@@ -78,6 +78,7 @@ install_node 'https://github.com/ltdrdata/ComfyUI-Impact-Subpack' 'ComfyUI-Impac
 install_node 'https://github.com/KohakuBlueleaf/z-tipo-extension' 'z-tipo-extension'
 install_node 'https://github.com/WASasquatch/was-node-suite-comfyui' 'was-node-suite-comfyui'
 install_node 'https://github.com/adieyal/comfyui-dynamicprompts' 'comfyui-dynamicprompts'
+install_node 'https://github.com/willmiao/ComfyUI-Lora-Manager' 'ComfyUI-Lora-Manager'
 
 # 5. СКАЧИВАНИЕ МОДЕЛЕЙ (С поддержкой wget в случае провала aria2)
 echo "⬇️ Скачивание моделей (Wan 2.2)..."
@@ -147,6 +148,7 @@ download_model 'https://civitai.red/api/download/models/2172230?token='$TOKEN 'd
 download_model 'https://civitai.red/api/download/models/2300536?token='$TOKEN 'Hyper_Muscles_V4.2.safetensors' "$MODELS_DIR/loras"
 download_model 'https://civitai.red/api/download/models/1272693?token='$TOKEN 'Spray Tan Slider_Pony.safetensors' "$MODELS_DIR/loras"
 download_model 'https://civitai.red/api/download/models/1253021?token='$TOKEN 'Pony Realism Slider.safetensors' "$MODELS_DIR/loras"
+download_model 'https://huggingface.co/datasets/Gourieff/ReActor/resolve/main/models/sams/sam_vit_b_01ec64.pth' 'sam_vit_b_01ec64.pth' "$MODELS_DIR/sams"
 
 # ==========================================
 echo "✅ ВСЕ ОПЕРАЦИИ ЗАВЕРШЕНЫ!"
