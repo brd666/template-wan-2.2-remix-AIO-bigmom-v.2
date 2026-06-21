@@ -147,7 +147,6 @@ download_model 'https://civitai.red/api/download/models/2172230?token='$TOKEN 'd
 download_model 'https://civitai.red/api/download/models/2300536?token='$TOKEN 'Hyper_Muscles_V4.2.safetensors' "$MODELS_DIR/loras"
 download_model 'https://civitai.red/api/download/models/1272693?token='$TOKEN 'Spray Tan Slider_Pony.safetensors' "$MODELS_DIR/loras"
 download_model 'https://civitai.red/api/download/models/1253021?token='$TOKEN 'Pony Realism Slider.safetensors' "$MODELS_DIR/loras"
-download_model 'https://huggingface.co/shiertier/clip_vision/resolve/main/CLIP-ViT-bigG-14-laion2B-39B-b160k.safetensors' 'CLIP-ViT-bigG-14-laion2B-39B-b160k.safetensors' "$MODELS_DIR/clip_vision"
 
 # ==========================================
 echo "✅ ВСЕ ОПЕРАЦИИ ЗАВЕРШЕНЫ!"
