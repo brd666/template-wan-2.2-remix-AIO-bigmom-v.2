@@ -127,7 +127,6 @@ download_model 'https://huggingface.co/Bingsu/adetailer/resolve/main/person_yolo
 download_model 'https://huggingface.co/Kutches/Anim4/resolve/441297abd33597506309ca63615d8a25c7041834/qwen_3_06b_base.safetensors' 'qwen_3_06b_base.safetensors' "$MODELS_DIR/text_encoders"
 download_model 'https://huggingface.co/adbrasi/wanlotest/resolve/main/Eyeful_v2-Individual.pt' 'Eyeful_v2-Individual.pt' "$MODELS_DIR/ultralytics/bbox"
 download_model 'https://huggingface.co/Comfy-Org/Qwen-Image_ComfyUI/resolve/main/split_files/vae/qwen_image_vae.safetensors' 'qwen_image_vae.safetensors' "$MODELS_DIR/vae"
-download_model 'https://civitai.red/api/download/models/2837020?token='$TOKEN 'novaAnimeAM_v25.safetensors' "$MODELS_DIR/diffusion_models"
 download_model 'https://civitai.red/api/download/models/2988052?token='$TOKEN 'hyper_muscles_anima_v1.safetensors' "$MODELS_DIR/loras"
 download_model 'https://civitai.red/api/download/models/2979642?token='$TOKEN 'anima-turbo-lora-v0.2.safetensors' "$MODELS_DIR/loras"
 download_model 'https://civitai.red/api/download/models/3022620?token='$TOKEN 'GothicNeonAnima.safetensors' "$MODELS_DIR/loras"
@@ -150,6 +149,7 @@ download_model 'https://civitai.red/api/download/models/2949121?token='$TOKEN 'S
 download_model 'https://civitai.red/api/download/models/2950020?token='$TOKEN 'silvana-style-AB10-01.safetensors' "$MODELS_DIR/loras"
 download_model 'https://civitai.red/api/download/models/2911835?token='$TOKEN 'valbun_A3P_v1.safetensors' "$MODELS_DIR/loras"
 download_model 'https://civitai.red/api/download/models/2981192?token='$TOKEN 'wepwawet_AnimaB_v01.safetensors' "$MODELS_DIR/loras"
+download_model 'https://civitai.red/api/download/models/3086321?token='$TOKEN 'novaAnimeAM_v25.safetensors' "$MODELS_DIR/diffusion_models"
 
 # ==========================================
 echo "✅ ВСЕ ОПЕРАЦИИ ЗАВЕРШЕНЫ!"
