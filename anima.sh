@@ -2,7 +2,7 @@
 
 # ==========================================
 # UNIVERSAL WAN 2.2 INSTALLER (Vast.ai / Ubuntu 22/24)
-# Template: anima
+# Template: anima 0.4
 # ==========================================
 
 # 1. НАСТРОЙКА ПЕРЕМЕННЫХ И ПУТЕЙ
@@ -61,17 +61,6 @@ install_node() {
     fi
 }
 
-install_node 'https://github.com/ltdrdata/ComfyUI-Impact-Pack' 'ComfyUI-Impact-Pack'
-install_node 'https://github.com/yolain/ComfyUI-Easy-Use' 'ComfyUI-Easy-Use'
-install_node 'https://github.com/aining2022/ComfyUI_Swwan' 'ComfyUI_Swwan'
-install_node 'https://github.com/ltdrdata/ComfyUI-Impact-Subpack' 'ComfyUI-Impact-Subpack'
-install_node 'https://github.com/DemonGatanjieu/Anomalous_Model_Browser' 'Anomalous_Model_Browser'
-install_node 'https://github.com/WASasquatch/was-node-suite-comfyui' 'was-node-suite-comfyui'
-install_node 'https://github.com/rgthree/rgthree-comfy' 'rgthree-comfy'
-install_node 'https://github.com/Aryan185/ComfyUI-VertexAPI' 'ComfyUI-VertexAPI'
-install_node 'https://github.com/ltdrdata/was-node-suite-comfyui' 'was-node-suite-comfyui'
-install_node 'https://github.com/adieyal/comfyui-dynamicprompts' 'comfyui-dynamicprompts'
-install_node 'https://github.com/willmiao/ComfyUI-Lora-Manager' 'ComfyUI-Lora-Manager'
 
 # 5. СКАЧИВАНИЕ МОДЕЛЕЙ (С поддержкой wget в случае провала aria2)
 echo "⬇️ Скачивание моделей (Wan 2.2)..."
@@ -120,36 +109,27 @@ download_model() {
 # Set CIVITAI_TOKEN from environment if present
 TOKEN="${CIVITAI_TOKEN}"
 
+download_model 'https://huggingface.co/adbrasi/wanlotest/resolve/main/Eyeful_v2-Individual.pt' 'Eyeful_v2-Individual.pt' "$MODELS_DIR/ultralytics/bbox"
 download_model 'https://huggingface.co/Bingsu/adetailer/resolve/main/face_yolov9c.pt' 'face_yolov9c.pt' "$MODELS_DIR/ultralytics/bbox"
-download_model 'https://huggingface.co/adbrasi/wanlotest/resolve/main/ntd11_anime_nsfw_segm_v5-variant1.pt' 'ntd11_anime_nsfw_segm_v5-variant1.pt' "$MODELS_DIR/ultralytics/segm"
+download_model 'https://huggingface.co/Nudimmud/adetailers/resolve/main/ntd11_anime_nsfw_segm_v5-variant1.pt' 'ntd11_anime_nsfw_segm_v5-variant1.pt' "$MODELS_DIR/ultralytics/segm"
 download_model 'https://huggingface.co/Bingsu/adetailer/resolve/main/hand_yolov9c.pt' 'hand_yolov9c.pt' "$MODELS_DIR/ultralytics/bbox"
+download_model 'https://huggingface.co/FacehugmanIII/4x_foolhardy_Remacri/resolve/main/4x_foolhardy_Remacri.pth' '4x_foolhardy_Remacri.pth' "$MODELS_DIR/upscale_models"
+download_model 'https://huggingface.co/datasets/Gourieff/ReActor/resolve/main/models/sams/sam_vit_b_01ec64.pth' 'sam_vit_b_01ec64.pth' "$MODELS_DIR/sams"
+download_model 'https://huggingface.co/f5aiteam/VAE/resolve/main/qwen_image_vae.safetensors' 'qwen_image_vae.safetensors' "$MODELS_DIR/vae"
 download_model 'https://huggingface.co/Bingsu/adetailer/resolve/main/person_yolov8m-seg.pt' 'person_yolov8m-seg.pt' "$MODELS_DIR/ultralytics/segm"
 download_model 'https://huggingface.co/Kutches/Anim4/resolve/441297abd33597506309ca63615d8a25c7041834/qwen_3_06b_base.safetensors' 'qwen_3_06b_base.safetensors' "$MODELS_DIR/text_encoders"
-download_model 'https://huggingface.co/adbrasi/wanlotest/resolve/main/Eyeful_v2-Individual.pt' 'Eyeful_v2-Individual.pt' "$MODELS_DIR/ultralytics/bbox"
-download_model 'https://huggingface.co/Comfy-Org/Qwen-Image_ComfyUI/resolve/main/split_files/vae/qwen_image_vae.safetensors' 'qwen_image_vae.safetensors' "$MODELS_DIR/vae"
+download_model 'https://civitai.red/api/download/models/3086321?token='$TOKEN 'novaAnimeAM_v25.safetensors' "$MODELS_DIR/diffusion_models"
 download_model 'https://civitai.red/api/download/models/2988052?token='$TOKEN 'hyper_muscles_anima_v1.safetensors' "$MODELS_DIR/loras"
 download_model 'https://civitai.red/api/download/models/2979642?token='$TOKEN 'anima-turbo-lora-v0.2.safetensors' "$MODELS_DIR/loras"
 download_model 'https://civitai.red/api/download/models/3022620?token='$TOKEN 'GothicNeonAnima.safetensors' "$MODELS_DIR/loras"
 download_model 'https://civitai.red/api/download/models/3026718?token='$TOKEN 'background_detailer_v1anima.safetensors' "$MODELS_DIR/loras"
 download_model 'https://civitai.red/api/download/models/2902360?token='$TOKEN 'hyper_breastsamina.safetensors' "$MODELS_DIR/loras"
 download_model 'https://civitai.red/api/download/models/3031464?token='$TOKEN 'incase23_lora.safetensors' "$MODELS_DIR/loras"
-download_model 'https://civitai.red/api/download/models/2795022?token='$TOKEN '90s anime aesthetic Anima-step00001600.safetensors' "$MODELS_DIR/loras"
-download_model 'https://civitai.red/api/download/models/2820017?token='$TOKEN '90s_anime_melancholy_Anima-step00003300.safetensors' "$MODELS_DIR/loras"
-download_model 'https://civitai.red/api/download/models/2963801?token='$TOKEN '@chxrrygxg-v1-animabase1-ty_lee.safetensors' "$MODELS_DIR/loras"
-download_model 'https://civitai.red/api/download/models/2954771?token='$TOKEN 'AfroBullStyle_ANIMAv1.safetensors' "$MODELS_DIR/loras"
-download_model 'https://civitai.red/api/download/models/2949612?token='$TOKEN 'anima-mikkoani-v3.1.safetensors' "$MODELS_DIR/loras"
-download_model 'https://civitai.red/api/download/models/2964454?token='$TOKEN 'anime_shiny_skin_v2.safetensors' "$MODELS_DIR/loras"
-download_model 'https://civitai.red/api/download/models/2992907?token='$TOKEN 'CitizenK_AnimaB_v01.safetensors' "$MODELS_DIR/loras"
-download_model 'https://civitai.red/api/download/models/2948181?token='$TOKEN 'ElinSprite_AnimaBaseV10_byKonan.safetensors' "$MODELS_DIR/loras"
 download_model 'https://civitai.red/api/download/models/2985705?token='$TOKEN 'Flar_ANIMA_BASE.safetensors' "$MODELS_DIR/loras"
-download_model 'https://civitai.red/api/download/models/3010462?token='$TOKEN 'LineLore1anima.safetensors' "$MODELS_DIR/loras"
-download_model 'https://civitai.red/api/download/models/2977497?token='$TOKEN 'Retro_60s_AniB.safetensors' "$MODELS_DIR/loras"
-download_model 'https://civitai.red/api/download/models/2903778?token='$TOKEN 'screenshot_v5-000009.safetensors' "$MODELS_DIR/loras"
-download_model 'https://civitai.red/api/download/models/2949121?token='$TOKEN 'Sexy_Retro_Cartoon_AniB.safetensors' "$MODELS_DIR/loras"
-download_model 'https://civitai.red/api/download/models/2950020?token='$TOKEN 'silvana-style-AB10-01.safetensors' "$MODELS_DIR/loras"
-download_model 'https://civitai.red/api/download/models/2911835?token='$TOKEN 'valbun_A3P_v1.safetensors' "$MODELS_DIR/loras"
-download_model 'https://civitai.red/api/download/models/2981192?token='$TOKEN 'wepwawet_AnimaB_v01.safetensors' "$MODELS_DIR/loras"
-download_model 'https://civitai.red/api/download/models/3086321?token='$TOKEN 'novaAnimeAM_v25.safetensors' "$MODELS_DIR/diffusion_models"
+download_model 'https://civitai.com/api/download/models/2817661?token='$TOKEN 'dark_art_style_Anima-step00002750.safetensors' "$MODELS_DIR/loras"
+download_model 'https://civitai.com/api/download/models/3007041?token='$TOKEN 'purple_tarot.safetensors' "$MODELS_DIR/loras"
+download_model 'https://civitai.com/api/download/models/3035023?token='$TOKEN 'anima_futanari_v3.safetensors' "$MODELS_DIR/loras"
+download_model 'https://civitai.com/api/download/models/2972344?token='$TOKEN 'csr-AnimaB_V10-V2-CAME.safetensors' "$MODELS_DIR/loras"
 
 # ==========================================
 echo "✅ ВСЕ ОПЕРАЦИИ ЗАВЕРШЕНЫ!"
