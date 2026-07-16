@@ -130,7 +130,7 @@ download_model() {
 TOKEN="${CIVITAI_TOKEN}"
 
 download_model 'https://huggingface.co/FacehugmanIII/4x_foolhardy_Remacri/resolve/main/4x_foolhardy_Remacri.pth' '4x_foolhardy_Remacri.pth' "$MODELS_DIR/upscale_models"
-download_model 'https://civitai.com/api/download/models/3070870?token='$TOKEN 'qwen3vl_4b_fp8_scaled.safetensors' "$MODELS_DIR/text_encoders"
+download_model 'https://civitai.red/api/download/models/3070870?token='$TOKEN 'qwen3vl-4b-abliterated_fp8_e4m3fn.safetensors' "$MODELS_DIR/text_encoders"
 download_model 'https://huggingface.co/Comfy-Org/Wan_2.1_ComfyUI_repackaged/resolve/main/split_files/vae/wan_2.1_vae.safetensors' 'wan_2.1_vae.safetensors' "$MODELS_DIR/vae"
 download_model 'https://civitai.red/api/download/models/3064297?token='$TOKEN 'krea2TurboOfficialComfy_krea2TurboFp8.safetensors' "$MODELS_DIR/diffusion_models"
 download_model 'https://civitai.red/api/download/models/3131773?token='$TOKEN 'breast_size_v2_krea2_loraholic.safetensors' "$MODELS_DIR/loras"
