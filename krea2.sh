@@ -76,11 +76,12 @@ install_node 'https://github.com/WASasquatch/was-node-suite-comfyui' 'was-node-s
 install_node 'https://github.com/Azornes/Comfyui-Resolution-Master' 'Comfyui-Resolution-Master'
 install_node 'https://github.com/ltdrdata/was-node-suite-comfyui' 'was-node-suite-comfyui'
 install_node 'https://github.com/chflame163/ComfyUI_LayerStyle' 'ComfyUI_LayerStyle'
-install_node 'https://github.com/Aryan185/ComfyUI-VertexAPI' 'ComfyUI-VertexAPI'
+install_node 'https://github.com/adieyal/comfyui-dynamicprompts' 'comfyui-dynamicprompts'
 install_node 'https://github.com/ltdrdata/ComfyUI-Impact-Pack' 'ComfyUI-Impact-Pack'
 install_node 'https://github.com/aining2022/ComfyUI_Swwan' 'ComfyUI_Swwan'
 install_node 'https://github.com/jupo-ai/comfy-join-prompt' 'comfy-join-prompt'
 install_node 'https://github.com/ClownsharkBatwing/RES4LYF' 'RES4LYF'
+install_node 'https://github.com/Aryan185/ComfyUI-VertexAPI' 'ComfyUI-VertexAPI'
 
 # 5. СКАЧИВАНИЕ МОДЕЛЕЙ (С поддержкой wget в случае провала aria2)
 echo "⬇️ Скачивание моделей (Wan 2.2)..."
@@ -130,7 +131,6 @@ download_model() {
 TOKEN="${CIVITAI_TOKEN}"
 
 download_model 'https://huggingface.co/FacehugmanIII/4x_foolhardy_Remacri/resolve/main/4x_foolhardy_Remacri.pth' '4x_foolhardy_Remacri.pth' "$MODELS_DIR/upscale_models"
-download_model 'https://civitai.red/api/download/models/3070870?token='$TOKEN 'qwen3vl-4b-abliterated_fp8_e4m3fn.safetensors' "$MODELS_DIR/text_encoders"
 download_model 'https://huggingface.co/Comfy-Org/Wan_2.1_ComfyUI_repackaged/resolve/main/split_files/vae/wan_2.1_vae.safetensors' 'wan_2.1_vae.safetensors' "$MODELS_DIR/vae"
 download_model 'https://civitai.red/api/download/models/3064297?token='$TOKEN 'krea2TurboOfficialComfy_krea2TurboFp8.safetensors' "$MODELS_DIR/diffusion_models"
 download_model 'https://civitai.red/api/download/models/3131773?token='$TOKEN 'breast_size_v2_krea2_loraholic.safetensors' "$MODELS_DIR/loras"
@@ -140,6 +140,7 @@ download_model 'https://civitai.red/api/download/models/3094133?token='$TOKEN 'k
 download_model 'https://civitai.red/api/download/models/3107044?token='$TOKEN 'NB-Sora-Muscle_Krea2_weighted_noema_rank48_merged.safetensors' "$MODELS_DIR/loras"
 download_model 'https://civitai.red/api/download/models/3071726?token='$TOKEN 'BreastSlider-KREA2.safetensors' "$MODELS_DIR/loras"
 download_model 'https://civitai.red/api/download/models/3066702?token='$TOKEN 'krea2_nud3.safetensors' "$MODELS_DIR/loras"
+download_model 'https://civitai.red/api/download/models/3070870?token='$TOKEN 'qwen3vl_4b_fp8_scaled.safetensors' "$MODELS_DIR/text_encoders"
 
 # ==========================================
 echo "✅ ВСЕ ОПЕРАЦИИ ЗАВЕРШЕНЫ!"
