@@ -62,7 +62,7 @@ install_node() {
 }
 
 install_node 'https://github.com/willmiao/ComfyUI-Lora-Manager' 'ComfyUI-Lora-Manager'
-install_node 'https://github.com/ltdrdata/ComfyUI-Manager' 'ComfyUI-Manager'
+install_node 'https://github.com/Comfy-Org/ComfyUI-Manager' 'ComfyUI-Manager'
 install_node 'https://github.com/chrisgoringe/cg-use-everywhere' 'cg-use-everywhere'
 install_node 'https://github.com/DemonGatanjieu/Anomalous_Model_Browser' 'Anomalous_Model_Browser'
 install_node 'https://github.com/kijai/ComfyUI-KJNodes' 'ComfyUI-KJNodes'
