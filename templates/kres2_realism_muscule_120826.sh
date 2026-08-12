@@ -116,11 +116,11 @@ resolve_final_url() {
         elif [[ "$u" == *huggingface.co* ]] && [ -n "$HF_TOKEN" ]; then
             header="Authorization: Bearer $HF_TOKEN"
         fi
-        if [ -n "$header" ]; then
-            hdrs=$(wget --header="$header" --max-redirect=0 --server-response -q -O /dev/null "$u" 2>&1)
-        else
-            hdrs=$(wget --max-redirect=0 --server-response -q -O /dev/null "$u" 2>&1)
+        if [ -z "$header" ]; then
+            printf '%s' "$u"
+            return 0
         fi
+        hdrs=$(wget --header="$header" --method=HEAD --max-redirect=0 --server-response -q -O /dev/null "$u" 2>&1)
         loc=$(printf '%s\n' "$hdrs" | grep -i 'Location:' | tail -1 | sed -E 's/.*[Ll]ocation:[[:space:]]*//' | tr -d '\r')
         if [ -z "$loc" ]; then
             printf '%s' "$u"
