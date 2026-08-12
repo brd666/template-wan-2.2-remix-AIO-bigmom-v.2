@@ -107,6 +107,31 @@ TOTAL_MODELS=0
 OK_MODELS=0
 FAILED_MODELS=()
 
+resolve_final_url() {
+    local u="$1" hops=0 header loc hdrs
+    while [ "$hops" -lt 5 ]; do
+        header=""
+        if { [[ "$u" == *civitai.com* ]] || [[ "$u" == *civitai.red* ]]; } && [ -n "$CIVITAI_TOKEN" ]; then
+            header="Authorization: Bearer $CIVITAI_TOKEN"
+        elif [[ "$u" == *huggingface.co* ]] && [ -n "$HF_TOKEN" ]; then
+            header="Authorization: Bearer $HF_TOKEN"
+        fi
+        if [ -n "$header" ]; then
+            hdrs=$(wget --header="$header" --max-redirect=0 --server-response -q -O /dev/null "$u" 2>&1)
+        else
+            hdrs=$(wget --max-redirect=0 --server-response -q -O /dev/null "$u" 2>&1)
+        fi
+        loc=$(printf '%s\n' "$hdrs" | grep -i 'Location:' | tail -1 | sed -E 's/.*[Ll]ocation:[[:space:]]*//' | tr -d '\r')
+        if [ -z "$loc" ]; then
+            printf '%s' "$u"
+            return 0
+        fi
+        u="$loc"
+        hops=$((hops+1))
+    done
+    printf '%s' "$u"
+}
+
 download_model() {
     local URL="$1"
     local FILENAME=$(echo "$2" | tr '\\' '/')
@@ -132,12 +157,14 @@ download_model() {
             if [ "$ATTEMPT" -gt 1 ]; then
                 echo "   🔄 Докачка $FILENAME, попытка $ATTEMPT/$MAX_ATTEMPTS..."
             fi
-            if { [[ "$URL" == *civitai.com* ]] || [[ "$URL" == *civitai.red* ]]; } && [ -n "$CIVITAI_TOKEN" ]; then
-                wget --header="Authorization: Bearer $CIVITAI_TOKEN" --tries=3 --timeout=30 -c --show-progress "$URL" -O "$TARGET_DIR/$FILENAME"
-            elif [[ "$URL" == *huggingface.co* ]] && [ -n "$HF_TOKEN" ]; then
-                wget --header="Authorization: Bearer $HF_TOKEN" --tries=3 --timeout=30 -c --show-progress "$URL" -O "$TARGET_DIR/$FILENAME"
+            DL_URL=$(resolve_final_url "$URL")
+            [ -n "$DL_URL" ] || DL_URL="$URL"
+            if { [[ "$DL_URL" == *civitai.com* ]] || [[ "$DL_URL" == *civitai.red* ]]; } && [ -n "$CIVITAI_TOKEN" ]; then
+                wget --header="Authorization: Bearer $CIVITAI_TOKEN" --tries=3 --timeout=30 -c --show-progress "$DL_URL" -O "$TARGET_DIR/$FILENAME"
+            elif [[ "$DL_URL" == *huggingface.co* ]] && [ -n "$HF_TOKEN" ]; then
+                wget --header="Authorization: Bearer $HF_TOKEN" --tries=3 --timeout=30 -c --show-progress "$DL_URL" -O "$TARGET_DIR/$FILENAME"
             else
-                wget --tries=3 --timeout=30 -c --show-progress "$URL" -O "$TARGET_DIR/$FILENAME"
+                wget --tries=3 --timeout=30 -c --show-progress "$DL_URL" -O "$TARGET_DIR/$FILENAME"
             fi
             WGET_EXIT=$?
             if [ "$WGET_EXIT" -eq 0 ] && [ -s "$TARGET_DIR/$FILENAME" ]; then
