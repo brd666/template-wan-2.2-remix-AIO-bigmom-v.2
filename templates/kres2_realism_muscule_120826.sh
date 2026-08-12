@@ -45,12 +45,15 @@ for i in {1..3}; do
     apt-get update --fix-missing && break || (echo "Retry apt-get update..." && sleep 5)
 done
 
-apt-get install -y aria2 ffmpeg libgl1 libglx-mesa0 wget git
+apt-get install -y ffmpeg libgl1 libglx-mesa0 wget git
 
 # 3. ПОДГОТОВКА БИБЛИОТЕК PYTHON
 echo "💊 Обновление базовых библиотек..."
 $PIP_EXEC install --upgrade pip $EXTRA_PIP_FLAGS
 $PIP_EXEC install $EXTRA_PIP_FLAGS opencv-python-headless accelerate dynamicprompts imageio-ffmpeg onnxruntime
+
+echo "🧩 Ставлю нативный comfyui-manager (pip, --pre)..."
+$PIP_EXEC install -U --pre $EXTRA_PIP_FLAGS comfyui-manager || echo "⚠️ comfyui-manager (pip) не поставился, продолжаю без него" >&2
 
 # 4. УСТАНОВКА CUSTOM NODES
 mkdir -p "$NODES_DIR"
@@ -68,7 +71,7 @@ install_node() {
         git clone --depth 1 --progress $REPO_URL
     else
         echo "🔄 $DIR_NAME найден, обновляю..."
-        cd "$DIR_NAME" && git pull && cd ..
+        (cd "$DIR_NAME" && CUR_BRANCH=$(git rev-parse --abbrev-ref HEAD) && git fetch --depth 1 --progress origin "$CUR_BRANCH" && git reset --hard "origin/$CUR_BRANCH") || echo "   ⚠️ $DIR_NAME: обновление не удалось, использую версию с диска как есть" >&2
     fi
     
     if [ -f "$DIR_NAME/requirements.txt" ]; then
@@ -96,7 +99,7 @@ install_node 'https://github.com/ltdrdata/ComfyUI-Impact-Pack' 'ComfyUI-Impact-P
 install_node 'https://github.com/aining2022/ComfyUI_Swwan' 'ComfyUI_Swwan'
 install_node 'https://github.com/jupo-ai/comfy-join-prompt' 'comfy-join-prompt'
 
-# 5. СКАЧИВАНИЕ МОДЕЛЕЙ (С поддержкой wget в случае провала aria2)
+# 5. СКАЧИВАНИЕ МОДЕЛЕЙ (wget, докачка до полного файла)
 echo "⬇️ Скачивание моделей..."
 
 MODELS_TOTAL=13
@@ -120,26 +123,36 @@ download_model() {
     if [ ! -s "$TARGET_DIR/$FILENAME" ]; then
         echo "   🚀 Загрузка $FILENAME..."
         
-        # Попытка №1: aria2 (многопоточность)
-        if command -v aria2c &> /dev/null; then
-            if { [[ "$URL" == *civitai.com* ]] || [[ "$URL" == *civitai.red* ]]; } && [ -n "$CIVITAI_TOKEN" ]; then
-                aria2c --console-log-level=warn --summary-interval=3 -c -x 16 -s 16 -k 1M --header="Authorization: Bearer $CIVITAI_TOKEN" "$URL" -d "$TARGET_DIR" -o "$FILENAME"
-            elif [[ "$URL" == *huggingface.co* ]] && [ -n "$HF_TOKEN" ]; then
-                aria2c --console-log-level=warn --summary-interval=3 -c -x 16 -s 16 -k 1M --header="Authorization: Bearer $HF_TOKEN" "$URL" -d "$TARGET_DIR" -o "$FILENAME"
-            else
-                aria2c --console-log-level=warn --summary-interval=3 -c -x 16 -s 16 -k 1M "$URL" -d "$TARGET_DIR" -o "$FILENAME"
+        MAX_ATTEMPTS=15
+        RETRY_DELAY=5
+        ATTEMPT=1
+        WGET_OK=0
+        WGET_EXIT=0
+        while [ "$ATTEMPT" -le "$MAX_ATTEMPTS" ]; do
+            if [ "$ATTEMPT" -gt 1 ]; then
+                echo "   🔄 Докачка $FILENAME, попытка $ATTEMPT/$MAX_ATTEMPTS..."
             fi
-        fi
-        
-        # Попытка №2: wget (если aria2 не скачал или его нет)
-        if [ ! -s "$TARGET_DIR/$FILENAME" ]; then
-            echo "   ⚠️ aria2 не справился, использую wget..."
             if { [[ "$URL" == *civitai.com* ]] || [[ "$URL" == *civitai.red* ]]; } && [ -n "$CIVITAI_TOKEN" ]; then
-                wget --header="Authorization: Bearer $CIVITAI_TOKEN" -q --show-progress -c "$URL" -O "$TARGET_DIR/$FILENAME"
+                wget --header="Authorization: Bearer $CIVITAI_TOKEN" --tries=3 --timeout=30 -c --show-progress "$URL" -O "$TARGET_DIR/$FILENAME"
             elif [[ "$URL" == *huggingface.co* ]] && [ -n "$HF_TOKEN" ]; then
-                wget --header="Authorization: Bearer $HF_TOKEN" -q --show-progress -c "$URL" -O "$TARGET_DIR/$FILENAME"
+                wget --header="Authorization: Bearer $HF_TOKEN" --tries=3 --timeout=30 -c --show-progress "$URL" -O "$TARGET_DIR/$FILENAME"
             else
-                wget -q --show-progress -c "$URL" -O "$TARGET_DIR/$FILENAME"
+                wget --tries=3 --timeout=30 -c --show-progress "$URL" -O "$TARGET_DIR/$FILENAME"
+            fi
+            WGET_EXIT=$?
+            if [ "$WGET_EXIT" -eq 0 ] && [ -s "$TARGET_DIR/$FILENAME" ]; then
+                WGET_OK=1
+                break
+            fi
+            echo "   ⚠️ wget завершился с кодом $WGET_EXIT (попытка $ATTEMPT/$MAX_ATTEMPTS) — жду ${RETRY_DELAY}с и докачиваю дальше..." >&2
+            sleep "$RETRY_DELAY"
+            ATTEMPT=$((ATTEMPT+1))
+        done
+        if [ "$WGET_OK" -ne 1 ]; then
+            echo "   ❌ $FILENAME не удалось докачать за $MAX_ATTEMPTS попыток (последний код wget: $WGET_EXIT)" >&2
+            AVAIL_KB=$(df -Pk "$TARGET_DIR" 2>/dev/null | tail -1 | awk '{print $4}')
+            if [ -n "$AVAIL_KB" ] && [ "$AVAIL_KB" -lt 2097152 ] 2>/dev/null; then
+                echo "   💾 Похоже, кончается место на диске (свободно: $((AVAIL_KB/1024)) МБ) — проверь размер диска инстанса Vast." >&2
             fi
         fi
     else
