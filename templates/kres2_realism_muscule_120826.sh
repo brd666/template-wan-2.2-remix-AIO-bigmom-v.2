@@ -36,6 +36,18 @@ echo "📁 ComfyUI: $COMFY_DIR"
 NODES_DIR="$COMFY_DIR/custom_nodes"
 MODELS_DIR="$COMFY_DIR/models"
 
+# 1b. ПИН ВЕРСИИ ЯДРА ComfyUI (иначе версия из образа может не совпасть с той,
+#     на которой воркфлоу собран — BETA-фичи ядра меняются между релизами)
+COMFY_VERSION='0.27.0'
+echo "📌 Ставлю ComfyUI версии $COMFY_VERSION (текущая: $(cd "$COMFY_DIR" && git describe --tags --always 2>/dev/null || echo неизвестна))"
+if (cd "$COMFY_DIR" && git fetch --tags --force origin && git checkout --force "$COMFY_VERSION"); then
+    echo "   📦 Подтягиваю зависимости под эту версию (frontend/templates пиннятся в requirements.txt)..."
+    (cd "$COMFY_DIR" && $PIP_EXEC install $EXTRA_PIP_FLAGS -r requirements.txt) || echo "   ⚠️ requirements.txt поставился не полностью — сверь версию frontend, если сабграфы поедут" >&2
+    echo "✅ ComfyUI зафиксирован на $COMFY_VERSION"
+else
+    echo "❌ Не удалось переключить ComfyUI на $COMFY_VERSION — проверь, что такой тег/коммит существует. Продолжаю на версии из образа." >&2
+fi
+
 # 2. УСТАНОВКА СИСТЕМНЫХ УТИЛИТ (С защитой от сбоев сети)
 echo "⚙️ Установка системных утилит..."
 export DEBIAN_FRONTEND=noninteractive
@@ -51,6 +63,11 @@ apt-get install -y ffmpeg libgl1 libglx-mesa0 wget git
 echo "💊 Обновление базовых библиотек..."
 $PIP_EXEC install --upgrade pip $EXTRA_PIP_FLAGS
 $PIP_EXEC install $EXTRA_PIP_FLAGS opencv-python-headless accelerate dynamicprompts imageio-ffmpeg onnxruntime
+
+if [ -d "$NODES_DIR/ComfyUI-Manager" ]; then
+    echo "🧹 Убираю предустановленный git-клон ComfyUI-Manager (мешает pip-версии)..."
+    rm -rf "$NODES_DIR/ComfyUI-Manager"
+fi
 
 echo "🧩 Ставлю нативный comfyui-manager (pip, --pre)..."
 $PIP_EXEC install -U --pre $EXTRA_PIP_FLAGS comfyui-manager || echo "⚠️ comfyui-manager (pip) не поставился, продолжаю без него" >&2
@@ -196,7 +213,7 @@ download_model() {
 }
 
 download_model 'https://huggingface.co/FacehugmanIII/4x_foolhardy_Remacri/resolve/main/4x_foolhardy_Remacri.pth' '4x_foolhardy_Remacri.pth' "$MODELS_DIR/upscale_models"
-download_model 'https://civitai.red/api/download/models/3070870' 'qwen3VL4BAbliteratedComfyui_v10 (2).safetensors' "$MODELS_DIR/text_encoders"
+download_model 'https://civitai.red/api/download/models/3070870' 'qwen3VL4BAbliteratedComfyui_v10.safetensors' "$MODELS_DIR/text_encoders"
 download_model 'https://huggingface.co/Comfy-Org/Wan_2.1_ComfyUI_repackaged/resolve/main/split_files/vae/wan_2.1_vae.safetensors' 'wan_2.1_vae.safetensors' "$MODELS_DIR/vae"
 download_model 'https://civitai.red/api/download/models/3068874' 'Detailer-KREA2.safetensors' "$MODELS_DIR/loras"
 download_model 'https://civitai.red/api/download/models/3090634' 'Krea2-realism-V2.safetensors' "$MODELS_DIR/loras"
