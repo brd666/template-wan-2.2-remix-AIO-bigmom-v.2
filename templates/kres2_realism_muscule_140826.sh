@@ -39,13 +39,27 @@ MODELS_DIR="$COMFY_DIR/models"
 # 1b. ПИН ВЕРСИИ ЯДРА ComfyUI (иначе версия из образа может не совпасть с той,
 #     на которой воркфлоу собран — BETA-фичи ядра меняются между релизами)
 COMFY_VERSION='0.27.0'
+case "$COMFY_VERSION" in
+    v*) COMFY_VERSION_ALT="${COMFY_VERSION#v}" ;;
+    *)  COMFY_VERSION_ALT="v$COMFY_VERSION" ;;
+esac
 echo "📌 Ставлю ComfyUI версии $COMFY_VERSION (текущая: $(cd "$COMFY_DIR" && git describe --tags --always 2>/dev/null || echo неизвестна))"
-if (cd "$COMFY_DIR" && git fetch --tags --force origin && git checkout --force "$COMFY_VERSION"); then
+COMFY_PINNED=""
+(cd "$COMFY_DIR" && git fetch --tags --force origin) || echo "   ⚠️ git fetch не удался — пробую переключиться на то, что уже есть локально" >&2
+if (cd "$COMFY_DIR" && git checkout --force "$COMFY_VERSION") 2>/dev/null; then
+    COMFY_PINNED="$COMFY_VERSION"
+elif (cd "$COMFY_DIR" && git checkout --force "$COMFY_VERSION_ALT") 2>/dev/null; then
+    COMFY_PINNED="$COMFY_VERSION_ALT"
+fi
+if [ -n "$COMFY_PINNED" ]; then
     echo "   📦 Подтягиваю зависимости под эту версию (frontend/templates пиннятся в requirements.txt)..."
     (cd "$COMFY_DIR" && $PIP_EXEC install $EXTRA_PIP_FLAGS -r requirements.txt) || echo "   ⚠️ requirements.txt поставился не полностью — сверь версию frontend, если сабграфы поедут" >&2
-    echo "✅ ComfyUI зафиксирован на $COMFY_VERSION"
+    echo "✅ ComfyUI зафиксирован на $COMFY_PINNED"
 else
-    echo "❌ Не удалось переключить ComfyUI на $COMFY_VERSION — проверь, что такой тег/коммит существует. Продолжаю на версии из образа." >&2
+    echo "❌ Не удалось переключить ComfyUI на $COMFY_VERSION (пробовал также $COMFY_VERSION_ALT)." >&2
+    echo "   Проверь, что такой тег/коммит есть в репозитории ComfyUI (теги вида v0.27.0)." >&2
+   echo "   Останавливаюсь: ноды закрепляются под ЭТУ версию ядра, и на другой они не заработают." >&2
+    exit 1
 fi
 
 # 2. УСТАНОВКА СИСТЕМНЫХ УТИЛИТ (С защитой от сбоев сети)
@@ -90,10 +104,14 @@ install_node() {
     
     if [ -n "$NODE_VER" ]; then
         echo "   📌 Ставлю версию из workflow: $NODE_VER"
+        case "$NODE_VER" in
+            v*) NODE_VER_ALT="${NODE_VER#v}" ;;
+            *)  NODE_VER_ALT="v$NODE_VER" ;;
+        esac
         if (cd "$DIR_NAME" && git fetch --depth 1 --force origin "$NODE_VER" && git checkout --force FETCH_HEAD) 2>/dev/null; then
             echo "   ✅ $DIR_NAME → $NODE_VER"
-        elif (cd "$DIR_NAME" && git fetch --depth 1 --force origin "v$NODE_VER" && git checkout --force FETCH_HEAD) 2>/dev/null; then
-            echo "   ✅ $DIR_NAME → v$NODE_VER"
+        elif (cd "$DIR_NAME" && git fetch --depth 1 --force origin "$NODE_VER_ALT" && git checkout --force FETCH_HEAD) 2>/dev/null; then
+            echo "   ✅ $DIR_NAME → $NODE_VER_ALT"
         else
             echo "   ⚠️ $DIR_NAME: версия $NODE_VER в репозитории не найдена — остаюсь на последней" >&2
             NODES_UNPINNED=$((NODES_UNPINNED+1))
