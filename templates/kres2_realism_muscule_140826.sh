@@ -84,7 +84,7 @@ echo "🧩 ComfyUI-Manager: режим git — ставится обычной c
 mkdir -p "$NODES_DIR"
 cd "$NODES_DIR"
 
-NODES_TOTAL=17
+NODES_TOTAL=16
 NODES_DONE=0
 NODES_UNPINNED=0
 NODES_PINNED_TOTAL=12
@@ -133,15 +133,14 @@ install_node 'https://github.com/PGCRT/CRT-Nodes' 'CRT-Nodes' '2.5.3'
 install_node 'https://github.com/pythongosssss/ComfyUI-Custom-Scripts' 'ComfyUI-Custom-Scripts' '1.2.5'
 install_node 'https://github.com/chrisgoringe/cg-use-everywhere' 'cg-use-everywhere' '7.8.0'
 install_node 'https://github.com/yolain/ComfyUI-Easy-Use' 'ComfyUI-Easy-Use' ''
-install_node 'https://github.com/WASasquatch/was-node-suite-comfyui' 'was-node-suite-comfyui' ''
 install_node 'https://github.com/ltdrdata/was-node-suite-comfyui' 'was-node-suite-comfyui' '3.0.1'
 install_node 'https://github.com/chflame163/ComfyUI_LayerStyle' 'ComfyUI_LayerStyle' '2.0.37'
 install_node 'https://github.com/Azornes/Comfyui-Resolution-Master' 'Comfyui-Resolution-Master' '1.6.2'
 install_node 'https://github.com/capitan01R/ComfyUI-Krea2T-Enhancer' 'ComfyUI-Krea2T-Enhancer' '75a14cb93487d0fea7985f199717da46ab5cb53d'
 install_node 'https://github.com/adieyal/comfyui-dynamicprompts' 'comfyui-dynamicprompts' '3f2fff32358cf39e21b8b440ca87eac9a8e2bade'
 install_node 'https://github.com/ltdrdata/ComfyUI-Impact-Pack' 'ComfyUI-Impact-Pack' '8.28.3'
-install_node 'https://github.com/aining2022/ComfyUI_Swwan' 'ComfyUI_Swwan' '1.0.2606200020'
 install_node 'https://github.com/jupo-ai/comfy-join-prompt' 'comfy-join-prompt' '1.3.9'
+install_node 'https://github.com/aining2022/ComfyUI_Swwan' 'ComfyUI_Swwan' '1.0.2606200020'
 
 if [ "$NODES_PINNED_TOTAL" -gt 0 ]; then
     echo "📌 Версии нод из workflow: закреплено $((NODES_PINNED_TOTAL-NODES_UNPINNED)) из $NODES_PINNED_TOTAL"
@@ -247,7 +246,6 @@ download_model 'https://huggingface.co/Comfy-Org/Wan_2.1_ComfyUI_repackaged/reso
 download_model 'https://civitai.red/api/download/models/3068874' 'Detailer-KREA2.safetensors' "$MODELS_DIR/loras"
 download_model 'https://civitai.red/api/download/models/3090634' 'Krea2-realism-V2.safetensors' "$MODELS_DIR/loras"
 download_model 'https://civitai.red/api/download/models/3107044' 'NB-Sora-Muscle_Krea2_weighted_noema_rank48_merged.safetensors' "$MODELS_DIR/loras"
-# krea2_bigger_muscular.safetensors отключена (галочка в шаблоне) — пропущена
 download_model 'https://civitai.red/api/download/models/3097834' 'skindetails_krea2_loraholic.safetensors' "$MODELS_DIR/loras"
 download_model 'https://civitai.red/api/download/models/3071726' 'BreastSlider-KREA2.safetensors' "$MODELS_DIR/loras"
 download_model 'https://civitai.red/api/download/models/3198230' 'snofs_krea_v1_3.safetensors' "$MODELS_DIR/loras"
