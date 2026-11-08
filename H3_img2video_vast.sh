@@ -52,6 +52,8 @@ set -o pipefail
 # DaSiWa Hybrid — один файл на оба слота модели: он умеет и режимы «от изображения» (I2VA, T2VA, L2VA, FL2VA),
 # и REF2VA (референсы). Суффикс «int8» в имени файла — способ сжатия весов (8 бит), это не другая модель.
 # Turbo — дистиллят на 4–8 шагов (быстро, для черновиков), обычная — 20–25 шагов (для финала).
+# Дополнительно (для другого воркфлоу): текстовый энкодер Qwen3-VL 4B fp8 scaled (5,2 ГБ, Comfy-Org/Qwen3-VL) —
+# нужен узлу Load CLIP с типом qwen_image; кладётся в models/text_encoders.
 # Воркфлоу «MythicAlchemy» по умолчанию выбирает в панели Settings: DaSiWa Hybrid v4 Turbo в обоих слотах UNET,
 # video VAE int8_convrot, CLIP nvfp4_awq, audio VAE fp32 — всё это скачивается ниже, менять списки не придётся.
 # ВАЖНО: скрипт проверен только синтаксически и по ссылкам/версиям; на живом
@@ -401,6 +403,7 @@ MODEL_LIST+=(
   "$HF_H3/vae/minimax_h3_video_vae_fp16.safetensors|MiniMaxH3/minimax_h3_video_vae_fp16.safetensors|$MODELS_DIR/vae|5207808496|"
   "https://huggingface.co/Kijai/MiniMax-H3-experimental/resolve/main/minimax_h3_video_vae_int8_convrot.safetensors|MiniMaxH3/minimax_h3_video_vae_int8_convrot.safetensors|$MODELS_DIR/vae|3171670912|"
   "$HF_H3/vae/minimax_h3_audio_vae_fp32.safetensors|MiniMaxH3/minimax_h3_audio_vae_fp32.safetensors|$MODELS_DIR/vae|605254808|"
+  "https://huggingface.co/Comfy-Org/Qwen3-VL/resolve/main/text_encoders/qwen3vl_4b_fp8_scaled.safetensors|qwen3vl_4b_fp8_scaled.safetensors|$MODELS_DIR/text_encoders|5242467968|"
 )
 if [ "$H3_OFFICIAL_FL2VA" = "1" ]; then
   MODEL_LIST+=(
