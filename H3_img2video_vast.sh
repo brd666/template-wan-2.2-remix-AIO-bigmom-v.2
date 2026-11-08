@@ -37,6 +37,8 @@ set -o pipefail
 #   CIVITAI_TOKEN=            ТОКЕН CivitAI (обязателен для DaSiWa Hybrid v4 Turbo — модель по умолчанию в воркфлоу;
 #                             задать в env шаблона Vast, в логах и в скрипте токен не печатается)
 #   H3_DASIWA_REGULAR=1       качать ОБЫЧНУЮ (не turbo) DaSiWa Hybrid v4 int8 (20,5 ГБ): 20–25 шагов, для финального качества
+#   H3_DIRECTOR_IMAGE_INPUT=1 добавить узлу MiniMaxH3 Director вход IMAGE (external_image_overwrite): первый кадр I2VA/FL2VA
+#                             берётся с любой ноды-загрузчика (например, Load Image Batch From Dir); 0 = не патчить
 #   H3_OFFICIAL_FL2VA=0       1 = ещё и официальную FL2VA pruned int8 (21 ГБ) + turbo-LoRA на 4 и 8 шагов (для сравнения)
 #   H3_REF2VA=0               1 = ещё и официальную REF2VA pruned int8 (21 ГБ) + turbo-LoRA для неё
 #   H3_OPTIONAL=1             апскейлер латента, RIFE, TAE-превью, 2x-AnimeSharpV4 (апскейл моделью); 0 = пропустить
@@ -54,6 +56,8 @@ set -o pipefail
 # Turbo — дистиллят на 4–8 шагов (быстро, для черновиков), обычная — 20–25 шагов (для финала).
 # Дополнительно (для другого воркфлоу): текстовый энкодер Qwen3-VL 4B fp8 scaled (5,2 ГБ, Comfy-Org/Qwen3-VL) —
 # нужен узлу Load CLIP с типом qwen_image; кладётся в models/text_encoders.
+# Ноды (кроме Manager, KJNodes, GGUF, DaSiWa): rgthree, Impact Pack, Inspire Pack, Easy Use, DynamicPrompts,
+# WAS Node Suite (Revised) — для блока «картинка → промпт» (Prompt enhancer, загрузка картинок из папки).
 # Воркфлоу «MythicAlchemy» по умолчанию выбирает в панели Settings: DaSiWa Hybrid v4 Turbo в обоих слотах UNET,
 # video VAE int8_convrot, CLIP nvfp4_awq, audio VAE fp32 — всё это скачивается ниже, менять списки не придётся.
 # ВАЖНО: скрипт проверен только синтаксически и по ссылкам/версиям; на живом
@@ -63,6 +67,7 @@ set -o pipefail
 H3_REF2VA="${H3_REF2VA:-0}"
 H3_OFFICIAL_FL2VA="${H3_OFFICIAL_FL2VA:-0}"
 H3_DASIWA_REGULAR="${H3_DASIWA_REGULAR:-1}"
+H3_DIRECTOR_IMAGE_INPUT="${H3_DIRECTOR_IMAGE_INPUT:-1}"
 CIVITAI_TOKEN="${CIVITAI_TOKEN:-}"
 H3_OPTIONAL="${H3_OPTIONAL:-1}"
 UNPIN_NODES="${UNPIN_NODES:-0}"
@@ -318,7 +323,7 @@ echo "✅ ComfyUI зафиксирован на $COMFY_PINNED"
 mkdir -p "$NODES_DIR"
 cd "$NODES_DIR" || exit 1
 
-NODES_TOTAL=4
+NODES_TOTAL=10
 NODES_DONE=0
 FAILED_NODES=()
 
@@ -363,6 +368,82 @@ install_node 'https://github.com/city96/ComfyUI-GGUF'                  'ComfyUI-
 # DaSiWa: llama-cpp-python (Prompt Forge с локальной GGUF-моделью) собирается из исходников и
 # воркфлоу для генерации не нужен; nvidia-vfx и amd-adlx ставим отдельно/не ставим.
 install_node 'https://github.com/darksidewalker/ComfyUI-DaSiWa-Nodes'  'ComfyUI-DaSiWa-Nodes' 'c52b1704d8250d1205515f1ce39c5d6c9ed9cd32' '^(llama-cpp-python|nvidia-vfx|amd-adlx)'
+
+# Патч Director: у узла нет входа для картинки (только размер и промпт), кадр выбирают вручную в его панели.
+# Добавляем вход IMAGE «external_image_overwrite»: первый кадр I2VA/FL2VA берётся с любой ноды-загрузчика
+# (например, Load Image Batch From Dir), и всё можно гонять автоматом. Без подключённого входа узел работает как раньше.
+# H3_DIRECTOR_IMAGE_INPUT=0 отключает патч; если фрагменты кода не найдены, патч пропускается без последствий.
+if [ "$H3_DIRECTOR_IMAGE_INPUT" = "1" ]; then
+    echo "   🖼️ Director: добавляю вход IMAGE для первого кадра..."
+    $PY_EXEC - "$NODES_DIR/ComfyUI-DaSiWa-Nodes/nodes/nodes_minimax_h3_director.py" <<'PYEOF' || echo "   ⚠️ патч Director не применён — первый кадр придётся выбирать в панели Director вручную" >&2
+import sys
+
+# Добавляет в узел MiniMaxH3 Director (ComfyUI-DaSiWa-Nodes) необязательный входной сокет IMAGE
+# «external_image_overwrite»: картинка с сокета становится первым кадром в режимах I2VA и FL2VA
+# (как external_width/height/prompt_overwrite заменяют размер и промпт). Без подключённого сокета узел
+# работает как раньше. Повторный запуск безопасен. Использование: python h3_director_image_patch.py <путь к nodes_minimax_h3_director.py>
+
+path = sys.argv[1]
+s = open(path, encoding="utf-8", newline="").read()
+if "external_image_overwrite" in s:
+    print("   ✅ патч Director уже применён")
+    sys.exit(0)
+if "\r" in s:
+    print("   ⚠️ файл с CRLF — патч не применяю", file=sys.stderr)
+    sys.exit(1)
+
+edits = [
+    # 1. входной сокет
+    ('''                "external_prompt_overwrite": ("STRING", {"default": "", "multiline": True, "forceInput": True}),
+''',
+     '''                "external_prompt_overwrite": ("STRING", {"default": "", "multiline": True, "forceInput": True}),
+                "external_image_overwrite": ("IMAGE", {"forceInput": True,
+                    "tooltip": "First frame for I2VA/FL2VA from another node (e.g. Load Image Batch From Dir). Replaces the image chosen in the Director panel."}),
+''', 1),
+    # 2. параметр в check_lazy_status и build_guide (в конец списка, чтобы не сдвигать позиционные аргументы)
+    ("external_prompt_overwrite=None, frame_rate=24.0):",
+     "external_prompt_overwrite=None, frame_rate=24.0, external_image_overwrite=None):", 2),
+    # 3. логика: после разбора картинок из панели, до сборки тегов
+    ('''        tag_map = _refmod_tag_map(refmod_items, ref_images, ref_videos, ref_video_audios, ref_audios)
+''',
+     '''        if external_image_overwrite is not None and not continuing and mode in ("I2VA", "FL2VA"):
+            external_frame = external_image_overwrite
+            if hasattr(external_frame, "shape") and len(external_frame.shape) == 4:
+                external_frame = external_frame[:1]
+            first_frame = scale_input_media(external_frame, input_scaling, width, height)
+
+        tag_map = _refmod_tag_map(refmod_items, ref_images, ref_videos, ref_video_audios, ref_audios)
+''', 1),
+]
+for old, new, count in edits:
+    if s.count(old) != count:
+        print(f"   ⚠️ не найден ожидаемый фрагмент ({s.count(old)} из {count}): {old.strip()[:70]}", file=sys.stderr)
+        sys.exit(1)
+    s = s.replace(old, new)
+try:
+    compile(s, path, "exec")
+except SyntaxError as exc:
+    print(f"   ⚠️ после патча файл не компилируется: {exc}", file=sys.stderr)
+    sys.exit(1)
+open(path, "w", encoding="utf-8", newline="").write(s)
+print("   ✅ Director: добавлен вход external_image_overwrite (IMAGE)")
+PYEOF
+fi
+
+# Ноды для блока «картинка → промпт» (список из ComfyUI-Manager → Install Missing Custom Nodes).
+# Impact Pack ставим раньше Inspire Pack: тот его импортирует.
+# Из requirements исключены: sam2 (сборка из исходников тянет второй torch; без него Impact Pack лишь пишет
+# предупреждение, SAM2-узлы воркфлоу не нужны), fairscale (нужен только старому модулю BLIP в WAS; BLIP-узлы WAS
+# работают через transformers) и opencv-python (уже есть opencv-python-headless; два пакета cv2 мешают друг другу).
+# У WAS убраны и три зависимости из git (img2texture, cstr, ffmpy): setup.py форка ffmpy импортирует удалённый
+# setuptools.command.test и не собирается, а один такой сбой ронял бы установку всех остальных зависимостей WAS.
+# Основному коду WAS они не нужны (img2texture он докачивает сам, когда запускается соответствующий узел).
+install_node 'https://github.com/rgthree/rgthree-comfy'            'rgthree-comfy'          'bc48c6aaeca87bedbc14245d89f9bc6be37a630e' ''
+install_node 'https://github.com/ltdrdata/ComfyUI-Impact-Pack'     'ComfyUI-Impact-Pack'    'eace4a9059908330936c6514f35f5e0c84935394' '^git\+https://github\.com/facebookresearch/sam2'
+install_node 'https://github.com/ltdrdata/ComfyUI-Inspire-Pack'    'ComfyUI-Inspire-Pack'   'd23db9aa544de9a6d4c609cb7005fa9e0d42031d' '^opencv-python[[:space:]]*$'
+install_node 'https://github.com/yolain/ComfyUI-Easy-Use'          'ComfyUI-Easy-Use'       'b0b47ca1372117fce575d9e744655344ebff6bef' ''
+install_node 'https://github.com/adieyal/comfyui-dynamicprompts'   'comfyui-dynamicprompts'  '0cda22b2cb4e71ade4c748d0f0e23b3b17be4ebd' ''
+install_node 'https://github.com/ltdrdata/was-node-suite-comfyui'  'was-node-suite-comfyui'  '44de705818d4663fefefde57ffe0ea5a9ea39df4' '^(fairscale|git\+)'
 
 echo "   🎞️ nvidia-vfx (нужен только для опциональных RTX-узлов, индекс NVIDIA)..."
 $PIP_EXEC install $EXTRA_PIP_FLAGS -c /opt/da/constraints.txt nvidia-vfx --extra-index-url https://pypi.nvidia.com/ \
