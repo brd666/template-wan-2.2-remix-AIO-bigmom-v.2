@@ -4,29 +4,40 @@ set -o pipefail
 # ==========================================================================
 # MiniMax H3 img2video (воркфлоу "DaSiWa MiniMaxH3 MythicAlchemy C-MMH3-33")
 # Vast.ai provisioning-скрипт (шаблон ComfyUI, Ubuntu 22/24, /workspace/ComfyUI)
+# ЭТОТ ФАЙЛ: профиль по умолчанию big — RTX PRO 6000 / H100 / H200 (80–96 ГБ). Для RTX 5090: H3_vast_5090_32GB.sh
 #
 # Как использовать:
 #   1. Создать шаблон Vast на образе  vastai/comfy:v0.44.0-cuda-13.2-py312  (там уже torch под CUDA 13.2,
 #      ComfyUI в /workspace/ComfyUI, venv /venv/main, supervisor-программа comfyui).
 #   2. Залить этот файл в GitHub (raw-ссылка) и указать её в env шаблона:
-#        PROVISIONING_SCRIPT=https://raw.githubusercontent.com/<you>/<repo>/main/H3_img2video_vast.sh
+#        PROVISIONING_SCRIPT=https://raw.githubusercontent.com/<you>/<repo>/main/<имя этого файла>.sh
 #      Рядом положить воркфлоу (.json) и задать WORKFLOW_URL — тогда он сам окажется в ComfyUI.
 #   3. Подбирать инстанс по фильтрам (см. ниже). Скрипт сам проверит железо и
-#      остановится ДО скачивания 70 ГБ, если инстанс не подходит.
+#      остановится ДО скачивания моделей, если инстанс не подходит (в т.ч. если профиль не для этой карты).
 #   4. На первом запуске ComfyUI стартует сам, когда скрипт закончится (скрипт запуска образа ждёт
 #      файла /.provisioning), поэтому перезапуск не нужен. Лог провижининга: /var/log/portal/provisioning.log
 #
+# ПРОФИЛИ (H3_PROFILE) — два файла отличаются только этой строкой по умолчанию:
+#   5090  RTX 5090 (32 ГБ). DiT int8: DaSiWa Hybrid v4 Turbo и обычная, текстовый энкодер nvfp4 (15,7 ГБ).
+#         Диск >= 150 ГБ (скрипт требует >= 100 свободных).
+#   big   карты 80–96 ГБ (RTX PRO 6000, H100, H200). Те же DaSiWa int8 (они не медленнее bf16 и почти не
+#         уступают по качеству), плюс текстовый энкодер int8_convrot (27 ГБ), опция bf16-DiT (H3_BF16_DIT=1,
+#         40 ГБ — для сравнения качества). Диск >= 200 ГБ (скрипт требует >= 130 свободных, с bf16 — 170).
+#
 # Фильтры поиска инстанса на Vast (проверять в карточке оффера):
-#   GPU: RTX 5090 (32 ГБ)  — минимум; для длинных/больших роликов 80+ ГБ (H100/H200/RTX PRO 6000)
 #   RAM инстанса (cpu_ram): >= 96 ГБ (минимум 64 ГБ, см. подсказку про --disable-pinned-memory)
-#   Диск: >= 150 ГБ   (модели 70 ГБ + venv/torch + запас под результаты)
 #   CUDA / драйвер: CUDA >= 13.2 (образ -cuda-13.2) — для pytorch на CUDA 13 и int8_convrot
 #
 # Переменные окружения (необязательные):
+#   H3_PROFILE=5090           5090 | big (см. выше)
+#   H3_TE_INT8=               1 = скачать текстовый энкодер int8_convrot (27 ГБ); по умолчанию 0 для 5090, 1 для big
+#   H3_BF16_DIT=0             1 = официальная FL2VA pruned bf16 (40 ГБ), только для big
+#   ALLOW_PROFILE_MISMATCH=0  1 = не останавливаться, если профиль big запущен на карте < 70 ГБ
 #   COMFY_VERSION=v0.44.2     тег ядра ComfyUI
 #   CIVITAI_TOKEN=            ТОКЕН CivitAI (обязателен для DaSiWa Hybrid v4 Turbo — модель по умолчанию в воркфлоу;
 #                             задать в env шаблона Vast, в логах и в скрипте токен не печатается)
-#   H3_OFFICIAL_FL2VA=1       качать официальную FL2VA pruned int8 (21 ГБ) для режима «полное качество, 25 шагов»
+#   H3_DASIWA_REGULAR=1       качать ОБЫЧНУЮ (не turbo) DaSiWa Hybrid v4 int8 (20,5 ГБ): 20–25 шагов, для финального качества
+#   H3_OFFICIAL_FL2VA=0       1 = ещё и официальную FL2VA pruned int8 (21 ГБ) + turbo-LoRA на 4 и 8 шагов (для сравнения)
 #   H3_REF2VA=0               1 = ещё и официальную REF2VA pruned int8 (21 ГБ) + turbo-LoRA для неё
 #   H3_OPTIONAL=1             апскейлер латента, RIFE, TAE-превью, 2x-AnimeSharpV4 (апскейл моделью); 0 = пропустить
 #   TORCH_SWAP=0              1 = если torch в образе НЕ на CUDA 13 — заменить на cu130 той же версии (по умолчанию не трогаем)
@@ -38,6 +49,9 @@ set -o pipefail
 #
 # Файлы моделей и размеры сверены с HuggingFace 2026-11-08; DaSiWa Hybrid v4 Turbo — CivitAI, версия 3392061,
 # файл dasiwa_minimax_h3_ref2va_v4_pruned_turbo_int8.safetensors (проверка по sha256 из API CivitAI).
+# DaSiWa Hybrid — один файл на оба слота модели: он умеет и режимы «от изображения» (I2VA, T2VA, L2VA, FL2VA),
+# и REF2VA (референсы). Суффикс «int8» в имени файла — способ сжатия весов (8 бит), это не другая модель.
+# Turbo — дистиллят на 4–8 шагов (быстро, для черновиков), обычная — 20–25 шагов (для финала).
 # Воркфлоу «MythicAlchemy» по умолчанию выбирает в панели Settings: DaSiWa Hybrid v4 Turbo в обоих слотах UNET,
 # video VAE int8_convrot, CLIP nvfp4_awq, audio VAE fp32 — всё это скачивается ниже, менять списки не придётся.
 # ВАЖНО: скрипт проверен только синтаксически и по ссылкам/версиям; на живом
@@ -45,7 +59,8 @@ set -o pipefail
 # ==========================================================================
 
 H3_REF2VA="${H3_REF2VA:-0}"
-H3_OFFICIAL_FL2VA="${H3_OFFICIAL_FL2VA:-1}"
+H3_OFFICIAL_FL2VA="${H3_OFFICIAL_FL2VA:-0}"
+H3_DASIWA_REGULAR="${H3_DASIWA_REGULAR:-1}"
 CIVITAI_TOKEN="${CIVITAI_TOKEN:-}"
 H3_OPTIONAL="${H3_OPTIONAL:-1}"
 UNPIN_NODES="${UNPIN_NODES:-0}"
@@ -55,6 +70,23 @@ H3_SELFTEST="${H3_SELFTEST:-1}"
 ALLOW_LOW_DISK="${ALLOW_LOW_DISK:-0}"
 COMFY_VERSION="${COMFY_VERSION:-v0.44.2}"
 WORKFLOW_URL="${WORKFLOW_URL:-}"
+ALLOW_PROFILE_MISMATCH="${ALLOW_PROFILE_MISMATCH:-0}"
+
+# Профиль железа: 5090 (32 ГБ) или big (80–96 ГБ). Файл H3_vast_80-96GB.sh отличается от H3_vast_5090_32GB.sh только этой строкой.
+H3_PROFILE="${H3_PROFILE:-big}"
+case "$H3_PROFILE" in
+    5090) H3_TE_INT8="${H3_TE_INT8:-0}"; H3_BF16_DIT="${H3_BF16_DIT:-0}" ;;
+    big)  H3_TE_INT8="${H3_TE_INT8:-1}"; H3_BF16_DIT="${H3_BF16_DIT:-0}" ;;
+    *) echo "❌ H3_PROFILE должен быть 5090 или big (сейчас: $H3_PROFILE)" >&2; exit 1 ;;
+esac
+if [ "$H3_PROFILE" = "5090" ] && [ "$H3_BF16_DIT" = "1" ]; then
+    echo "⚠️ bf16-модель (40 ГБ) не помещается в 32 ГБ — H3_BF16_DIT отключён для профиля 5090." >&2
+    H3_BF16_DIT=0
+fi
+# минимум свободного места на диске: база 100 ГБ (+30 за энкодер int8, +40 за bf16-модель)
+MIN_DISK_GB=100
+[ "$H3_TE_INT8" = "1" ] && MIN_DISK_GB=$((MIN_DISK_GB+30))
+[ "$H3_BF16_DIT" = "1" ] && MIN_DISK_GB=$((MIN_DISK_GB+40))
 
 export PIP_NO_CACHE_DIR=1
 export DEBIAN_FRONTEND=noninteractive
@@ -62,6 +94,21 @@ START_TS=$SECONDS
 
 # сравнение версий: ver_ge A B  -> истина, если A >= B
 ver_ge() { [ "$(printf '%s\n%s\n' "$2" "$1" | sort -V | head -1)" = "$2" ]; }
+
+# profile_check ПРОФИЛЬ VRAM_МиБ: 0 = подходит, 1 = профиль не для этой карты (причина в stderr)
+profile_check() {
+    local prof="$1" vram="$2"
+    [[ "$vram" =~ ^[0-9]+$ ]] || return 0
+    if [ "$prof" = "big" ] && [ "$vram" -lt 70000 ]; then
+        echo "❌ Профиль big рассчитан на карты 80+ ГБ (PRO 6000, H100, H200), а здесь ${vram} МиБ VRAM." >&2
+        echo "   Для RTX 5090 (32 ГБ) возьми профиль 5090 (H3_PROFILE=5090): там модели подобраны под 32 ГБ." >&2
+        return 1
+    fi
+    if [ "$prof" = "5090" ] && [ "$vram" -lt 30000 ]; then
+        echo "⚠️ VRAM ${vram} МиБ < 30000: pruned-int8 модель (21 ГБ) пойдёт с выгрузкой весов, будет заметно медленнее." >&2
+    fi
+    return 0
+}
 
 # --------------------------------------------------------------------------
 # 0. PREFLIGHT: железо проверяем до трат времени и денег
@@ -116,9 +163,14 @@ done
 RAM_GB=$(( ${RAM_KB:-0} / 1024 / 1024 ))
 echo "   ОЗУ: ${RAM_GB} ГБ"
 
-# 0a. VRAM
-if [ -n "$VRAM_MB" ] && [ "$VRAM_MB" -lt 30000 ] 2>/dev/null; then
-    echo "⚠️ VRAM ${VRAM_MB} МиБ < 30000: pruned-int8 модель (21 ГБ) пойдёт с выгрузкой весов, будет заметно медленнее." >&2
+# 0a. VRAM и профиль
+echo "   Профиль: $H3_PROFILE"
+if ! profile_check "$H3_PROFILE" "$VRAM_MB"; then
+    [ "$ALLOW_PROFILE_MISMATCH" = "1" ] || exit 1
+    echo "   ALLOW_PROFILE_MISMATCH=1 — продолжаю на свой риск." >&2
+fi
+if [ "$H3_PROFILE" = "5090" ] && [[ "$VRAM_MB" =~ ^[0-9]+$ ]] && [ "$VRAM_MB" -ge 70000 ]; then
+    echo "ℹ️ На карте ${VRAM_MB} МиБ есть смысл взять профиль big (H3_PROFILE=big): энкодер int8 и опция bf16." >&2
 fi
 
 # 0b. ОЗУ
@@ -182,9 +234,9 @@ MODELS_DIR="$COMFY_DIR/models"
 
 # 1a. Место на диске — до скачивания, а не после
 DISK_FREE_GB=$(df -Pk "$COMFY_DIR" 2>/dev/null | awk 'NR==2{print int($4/1024/1024)}')
-echo "   Свободно на диске: ${DISK_FREE_GB:-?} ГБ (нужно >= 100)"
-if [ -n "$DISK_FREE_GB" ] && [ "$DISK_FREE_GB" -lt 100 ]; then
-    echo "❌ Мало места: ${DISK_FREE_GB} ГБ. Модели ~70 ГБ + torch/venv. Подними размер диска при аренде (150 ГБ)." >&2
+echo "   Свободно на диске: ${DISK_FREE_GB:-?} ГБ (нужно >= $MIN_DISK_GB)"
+if [ -n "$DISK_FREE_GB" ] && [ "$DISK_FREE_GB" -lt "$MIN_DISK_GB" ]; then
+    echo "❌ Мало места: ${DISK_FREE_GB} ГБ, для профиля $H3_PROFILE нужно не меньше ${MIN_DISK_GB} ГБ (модели + torch/venv). Подними размер диска при аренде." >&2
     [ "$ALLOW_LOW_DISK" = "1" ] || exit 1
     echo "   ALLOW_LOW_DISK=1 — продолжаю на свой риск." >&2
 fi
@@ -325,31 +377,46 @@ PYEOF
 # 6. МОДЕЛИ (wget -c, докачка; проверка точного размера или sha256)
 #    Имена и подпапки совпадают с теми, что записаны в воркфлоу.
 # --------------------------------------------------------------------------
-echo "⬇️ Скачивание моделей (≈70 ГБ)..."
+echo "⬇️ Скачивание моделей (профиль $H3_PROFILE)..."
 HF_H3="https://huggingface.co/Comfy-Org/MiniMax-H3/resolve/main"
-DASIWA_SHA="36471AFB817747B711B9ABAD3D8E6B7C88A7C2B91B4887D040A8DCB7EE82B2D6"
+DASIWA_SHA="36471AFB817747B711B9ABAD3D8E6B7C88A7C2B91B4887D040A8DCB7EE82B2D6"            # v4 Turbo int8
+DASIWA_REGULAR_SHA="4AD2A1D7135C77F799BA9B93AF893FC2654315408C069A26F6516CDED1E8A53B"    # v4 обычная int8
 FAILED_MODELS=()
 
 # формат: URL | путь внутри папки | папка в models | размер в байтах (0 = не проверять) | sha256 (необязательно)
 MODEL_LIST=()
 if [ -n "$CIVITAI_TOKEN" ]; then
   MODEL_LIST+=("https://civitai.com/api/download/models/3392061?fileId=3281858|MiniMaxH3/dasiwa_minimax_h3_ref2va_v4_pruned_turbo_int8.safetensors|$MODELS_DIR/diffusion_models|0|$DASIWA_SHA")
+  if [ "$H3_DASIWA_REGULAR" = "1" ]; then
+    MODEL_LIST+=("https://civitai.com/api/download/models/3391862?fileId=3281578|MiniMaxH3/dasiwa_minimax_h3_ref2va_v4_pruned_int8.safetensors|$MODELS_DIR/diffusion_models|0|$DASIWA_REGULAR_SHA")
+  fi
 else
-  echo "⚠️ CIVITAI_TOKEN не задан — модель DaSiWa Hybrid v4 Turbo (CivitAI) пропущена, воркфлоу по умолчанию без неё не запустится." >&2
-  echo "   Задай CIVITAI_TOKEN в env шаблона Vast либо выбери официальные FL2VA/REF2VA в панели Settings воркфлоу." >&2
+  echo "⚠️ CIVITAI_TOKEN не задан — модели DaSiWa Hybrid v4 (CivitAI) пропущены, воркфлоу по умолчанию без них не запустится." >&2
+  echo "   Задай CIVITAI_TOKEN в env шаблона Vast либо поставь H3_OFFICIAL_FL2VA=1 и выбери официальную FL2VA в панели Settings." >&2
   FAILED_MODELS+=("MiniMaxH3/dasiwa_minimax_h3_ref2va_v4_pruned_turbo_int8.safetensors (нужен CIVITAI_TOKEN)")
+  [ "$H3_DASIWA_REGULAR" = "1" ] && FAILED_MODELS+=("MiniMaxH3/dasiwa_minimax_h3_ref2va_v4_pruned_int8.safetensors (нужен CIVITAI_TOKEN)")
 fi
 MODEL_LIST+=(
   "$HF_H3/text_encoders/qwen3vl_32b_minimax_h3_nvfp4_awq.safetensors|qwen3vl_32b_minimax_h3_nvfp4_awq.safetensors|$MODELS_DIR/text_encoders|15687142551|"
   "$HF_H3/vae/minimax_h3_video_vae_fp16.safetensors|MiniMaxH3/minimax_h3_video_vae_fp16.safetensors|$MODELS_DIR/vae|5207808496|"
   "https://huggingface.co/Kijai/MiniMax-H3-experimental/resolve/main/minimax_h3_video_vae_int8_convrot.safetensors|MiniMaxH3/minimax_h3_video_vae_int8_convrot.safetensors|$MODELS_DIR/vae|3171670912|"
   "$HF_H3/vae/minimax_h3_audio_vae_fp32.safetensors|MiniMaxH3/minimax_h3_audio_vae_fp32.safetensors|$MODELS_DIR/vae|605254808|"
-  "$HF_H3/loras/minimax_h3_fl2v_turbo_4step_v1.0_768p_comfyui_bf16.safetensors|MiniMaxH3/minimax_h3_fl2v_turbo_4step_v1.0_768p_comfyui_bf16.safetensors|$MODELS_DIR/loras|1956192992|"
-  "$HF_H3/loras/minimax_h3_fl2v_turbo_8step_v1.0_comfyui_bf16.safetensors|MiniMaxH3/minimax_h3_fl2v_turbo_8step_v1.0_comfyui_bf16.safetensors|$MODELS_DIR/loras|1956193000|"
 )
 if [ "$H3_OFFICIAL_FL2VA" = "1" ]; then
   MODEL_LIST+=(
     "$HF_H3/diffusion_models/minimax_h3_fl2va_pruned_int8_convrot.safetensors|MiniMaxH3/minimax_h3_fl2va_pruned_int8_convrot.safetensors|$MODELS_DIR/diffusion_models|20970379616|"
+    "$HF_H3/loras/minimax_h3_fl2v_turbo_4step_v1.0_768p_comfyui_bf16.safetensors|MiniMaxH3/minimax_h3_fl2v_turbo_4step_v1.0_768p_comfyui_bf16.safetensors|$MODELS_DIR/loras|1956192992|"
+    "$HF_H3/loras/minimax_h3_fl2v_turbo_8step_v1.0_comfyui_bf16.safetensors|MiniMaxH3/minimax_h3_fl2v_turbo_8step_v1.0_comfyui_bf16.safetensors|$MODELS_DIR/loras|1956193000|"
+  )
+fi
+if [ "$H3_TE_INT8" = "1" ]; then
+  MODEL_LIST+=(
+    "$HF_H3/text_encoders/qwen3vl_32b_minimax_h3_int8_convrot.safetensors|qwen3vl_32b_minimax_h3_int8_convrot.safetensors|$MODELS_DIR/text_encoders|27141342152|"
+  )
+fi
+if [ "$H3_BF16_DIT" = "1" ]; then
+  MODEL_LIST+=(
+    "$HF_H3/diffusion_models/minimax_h3_fl2va_pruned_bf16.safetensors|MiniMaxH3/minimax_h3_fl2va_pruned_bf16.safetensors|$MODELS_DIR/diffusion_models|40225724176|"
   )
 fi
 if [ "$H3_OPTIONAL" = "1" ]; then
@@ -520,9 +587,18 @@ if [ ${#FAILED_NODES[@]} -gt 0 ]; then
     for n in "${FAILED_NODES[@]}"; do echo "   - $n"; done
 fi
 echo ""
-echo "ℹ️ Советы по запуску:"
+echo "ℹ️ Советы по запуску (профиль $H3_PROFILE):"
+if [ "$H3_PROFILE" = "5090" ]; then
+    echo "   • На 896×1344 / 8 с включи Chunking в панели Settings; если в логе 'partially loaded' — снизь разрешение или возьми карту 80+ ГБ."
+    echo "   • Если семплер вдруг в разы медленнее обычного — переключи Visual VAE с int8_convrot на fp16 (известный случай на Windows)."
+else
+    echo "   • Текстовый энкодер int8_convrot (если скачан) выбери в панели Settings вручную: в воркфлоу по умолчанию стоит nvfp4_awq."
+    echo "   • bf16-модель (если скачана) выбери в слоте UNET FL2VA и сравни с int8: ожидай заметно больше времени на ролик."
+fi
 echo "   • Если ComfyUI падает по ОЗУ: добавь --disable-pinned-memory в COMFYUI_ARGS шаблона."
-echo "   • Для коротких проб ставь turbo-LoRA (4–8 шагов, euler); полное качество — 25 шагов, res_multistep."
+echo "   • Turbo (DaSiWa): euler/simple, 4–8 шагов, shift video 6–12 / audio 3–5 — для черновиков (начни с 8 шагов)."
+echo "   • Обычная (DaSiWa): res_multistep/simple или euler/simple, 20–25 шагов, shift video 10–12 / audio 3–5 — для финала. Выбери её в обоих слотах UNET."
+echo "   • Звук: у Turbo бывают просадки голоса и другая громкость — сравни Turbo (8 шагов) и обычную на реплике: то же изображение, промпт, фиксированное зерно."
 echo "   • Пик VRAM смотри в nvidia-smi и в логе ComfyUI (строки 'loaded completely' / 'partially loaded')."
 echo "⏱️ Всего времени: $(( (SECONDS-START_TS)/60 )) мин"
 echo "✅ ВСЕ ОПЕРАЦИИ ЗАВЕРШЕНЫ!"
