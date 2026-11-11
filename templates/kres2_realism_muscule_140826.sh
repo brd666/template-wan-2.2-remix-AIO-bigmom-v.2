@@ -84,14 +84,15 @@ echo "🧩 ComfyUI-Manager: режим git — ставится обычной c
 mkdir -p "$NODES_DIR"
 cd "$NODES_DIR"
 
-NODES_TOTAL=16
+NODES_TOTAL=14
 NODES_DONE=0
 NODES_UNPINNED=0
-NODES_PINNED_TOTAL=12
+NODES_PINNED_TOTAL=10
 install_node() {
     REPO_URL=$1
     DIR_NAME=$2
     NODE_VER=$3
+    NODE_EXCLUDE=$4
     NODES_DONE=$((NODES_DONE+1))
     echo "🔧 [$NODES_DONE/$NODES_TOTAL] Нода: $DIR_NAME"
     if [ ! -d "$DIR_NAME" ]; then
@@ -120,7 +121,14 @@ install_node() {
     
     if [ -f "$DIR_NAME/requirements.txt" ]; then
         echo "   📦 Ставлю зависимости для $DIR_NAME..."
-        $PIP_EXEC install $EXTRA_PIP_FLAGS -r "$DIR_NAME/requirements.txt"
+        if [ -n "$NODE_EXCLUDE" ]; then
+            TMP_REQ=$(mktemp)
+            grep -v -i -E "$NODE_EXCLUDE" "$DIR_NAME/requirements.txt" > "$TMP_REQ"
+            $PIP_EXEC install $EXTRA_PIP_FLAGS -r "$TMP_REQ"
+            rm -f "$TMP_REQ"
+        else
+            $PIP_EXEC install $EXTRA_PIP_FLAGS -r "$DIR_NAME/requirements.txt"
+        fi
     fi
     echo "📊 Прогресс нод: $NODES_DONE/$NODES_TOTAL"
 }
@@ -128,19 +136,31 @@ install_node() {
 install_node 'https://github.com/Comfy-Org/ComfyUI-Manager' 'ComfyUI-Manager' ''
 install_node 'https://github.com/willmiao/ComfyUI-Lora-Manager' 'ComfyUI-Lora-Manager' ''
 install_node 'https://github.com/kijai/ComfyUI-KJNodes' 'ComfyUI-KJNodes' ''
-install_node 'https://github.com/rgthree/rgthree-comfy' 'rgthree-comfy' '1.0.2606200020'
-install_node 'https://github.com/PGCRT/CRT-Nodes' 'CRT-Nodes' '2.5.3'
-install_node 'https://github.com/pythongosssss/ComfyUI-Custom-Scripts' 'ComfyUI-Custom-Scripts' '1.2.5'
-install_node 'https://github.com/chrisgoringe/cg-use-everywhere' 'cg-use-everywhere' '7.8.0'
+# Версии в воркфлоу — это номера из реестра ComfyUI, git-тегов с такими именами у репозиториев нет, поэтому пин
+# молча не срабатывал и ставилась последняя версия. Ниже вместо номеров стоят коммиты, из которых эти версии
+# опубликованы (rgthree 1.0.2606200020, CRT 2.5.3, Custom-Scripts 1.2.5, cg-use-everywhere 7.8, LayerStyle 2.0.37,
+# Impact Pack 8.28.3); для WAS взят коммит, записанный в самом воркфлоу.
+install_node 'https://github.com/rgthree/rgthree-comfy' 'rgthree-comfy' '27b4f4cdcf3b127c29d5d8135ac1536ecbd4c383'
+install_node 'https://github.com/PGCRT/CRT-Nodes' 'CRT-Nodes' '24c9eb1e265bc8a7bf198c9358d3664f5e85b095'
+install_node 'https://github.com/pythongosssss/ComfyUI-Custom-Scripts' 'ComfyUI-Custom-Scripts' 'aac13aa7ce35b07d43633c3bbe654a38c00d74f5'
+install_node 'https://github.com/chrisgoringe/cg-use-everywhere' 'cg-use-everywhere' 'a62493dee41369503c562a0622e261c19f9d450e'
 install_node 'https://github.com/yolain/ComfyUI-Easy-Use' 'ComfyUI-Easy-Use' ''
-install_node 'https://github.com/ltdrdata/was-node-suite-comfyui' 'was-node-suite-comfyui' '3.0.1'
-install_node 'https://github.com/chflame163/ComfyUI_LayerStyle' 'ComfyUI_LayerStyle' '2.0.37'
+install_node 'https://github.com/ltdrdata/was-node-suite-comfyui' 'was-node-suite-comfyui' 'afeee09ba44e713ec52a413ac6b105fd06b2d356'
+install_node 'https://github.com/chflame163/ComfyUI_LayerStyle' 'ComfyUI_LayerStyle' 'ef5c45afe394a3d072a34be6a2b59fd01b567d5d'
 install_node 'https://github.com/Azornes/Comfyui-Resolution-Master' 'Comfyui-Resolution-Master' '1.6.2'
-install_node 'https://github.com/capitan01R/ComfyUI-Krea2T-Enhancer' 'ComfyUI-Krea2T-Enhancer' '75a14cb93487d0fea7985f199717da46ab5cb53d'
+# Исходный репозиторий capitan01R/ComfyUI-Krea2T-Enhancer удалён (GitHub отвечает 404). Ставим из зеркала сообщества,
+# но на тот же коммит 75a14cb (автор capitan01R): хеш коммита фиксирует содержимое, подмена кода невозможна.
+install_node 'https://github.com/pekkAi-dev/ComfyUI-Krea2T-Enhancer' 'ComfyUI-Krea2T-Enhancer' '75a14cb93487d0fea7985f199717da46ab5cb53d'
 install_node 'https://github.com/adieyal/comfyui-dynamicprompts' 'comfyui-dynamicprompts' '3f2fff32358cf39e21b8b440ca87eac9a8e2bade'
-install_node 'https://github.com/ltdrdata/ComfyUI-Impact-Pack' 'ComfyUI-Impact-Pack' '8.28.3'
-install_node 'https://github.com/jupo-ai/comfy-join-prompt' 'comfy-join-prompt' '1.3.9'
-install_node 'https://github.com/aining2022/ComfyUI_Swwan' 'ComfyUI_Swwan' '1.0.2606200020'
+# Impact Pack: sam2 (git+https://github.com/facebookresearch/sam2) собирается из исходников целую вечность и нужен только
+# узлам SAM2, которых в воркфлоу нет; без него Impact Pack лишь пишет предупреждение при запуске.
+install_node 'https://github.com/ltdrdata/ComfyUI-Impact-Pack' 'ComfyUI-Impact-Pack' '5bed9d5545ef430406a5d6d7233e5c0a5e75051a' '^git\+https://github\.com/facebookresearch/sam2'
+# Убраны из установки (не используются воркфлоу; верни строки, если они нужны другим воркфлоу):
+#  - jupo-ai/comfy-join-prompt: репозитория нет на GitHub; версия 1.3.9 из воркфлоу — это версия ComfyUI-KJNodes
+#    (узел JoinStrings), а KJNodes уже ставится выше.
+#  - aining2022/ComfyUI_Swwan: версия 1.0.2606200020 из воркфлоу — это версия rgthree-comfy, узлов Swwan в воркфлоу нет.
+# install_node 'https://github.com/jupo-ai/comfy-join-prompt' 'comfy-join-prompt' '1.3.9'
+# install_node 'https://github.com/aining2022/ComfyUI_Swwan' 'ComfyUI_Swwan' '1.0.2606200020'
 
 if [ "$NODES_PINNED_TOTAL" -gt 0 ]; then
     echo "📌 Версии нод из workflow: закреплено $((NODES_PINNED_TOTAL-NODES_UNPINNED)) из $NODES_PINNED_TOTAL"
