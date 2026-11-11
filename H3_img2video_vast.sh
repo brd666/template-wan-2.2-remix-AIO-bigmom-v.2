@@ -18,7 +18,7 @@ set -o pipefail
 #      файла /.provisioning), поэтому перезапуск не нужен. Лог провижининга: /var/log/portal/provisioning.log
 #
 # ПРОФИЛИ (H3_PROFILE) — два файла отличаются только этой строкой по умолчанию:
-#   5090  RTX 5090 (32 ГБ). DiT int8: DaSiWa Hybrid v4 Turbo и обычная, текстовый энкодер nvfp4 (15,7 ГБ).
+#   5090  RTX 5090 (32 ГБ). DiT int8: DaSiWa Hybrid v4 (обычная, без Turbo), текстовый энкодер nvfp4 (15,7 ГБ).
 #         Диск >= 150 ГБ (скрипт требует >= 100 свободных).
 #   big   карты 80–96 ГБ (RTX PRO 6000, H100, H200). Те же DaSiWa int8 (они не медленнее bf16 и почти не
 #         уступают по качеству), плюс текстовый энкодер int8_convrot (27 ГБ), опция bf16-DiT (H3_BF16_DIT=1,
@@ -34,9 +34,8 @@ set -o pipefail
 #   H3_BF16_DIT=0             1 = официальная FL2VA pruned bf16 (40 ГБ), только для big
 #   ALLOW_PROFILE_MISMATCH=0  1 = не останавливаться, если профиль big запущен на карте < 70 ГБ
 #   COMFY_VERSION=v0.44.2     тег ядра ComfyUI
-#   CIVITAI_TOKEN=            ТОКЕН CivitAI (обязателен для DaSiWa Hybrid v4 Turbo — модель по умолчанию в воркфлоу;
+#   CIVITAI_TOKEN=            ТОКЕН CivitAI (обязателен для DaSiWa Hybrid v4 — основная модель воркфлоу;
 #                             задать в env шаблона Vast, в логах и в скрипте токен не печатается)
-#   H3_DASIWA_REGULAR=1       качать ОБЫЧНУЮ (не turbo) DaSiWa Hybrid v4 int8 (20,5 ГБ): 20–25 шагов, для финального качества
 #   H3_DIRECTOR_IMAGE_INPUT=1 добавить узлу MiniMaxH3 Director вход IMAGE (external_image_overwrite): первый кадр I2VA/FL2VA
 #                             берётся с любой ноды-загрузчика (например, Load Image Batch From Dir); 0 = не патчить
 #   H3_OFFICIAL_FL2VA=0       1 = ещё и официальную FL2VA pruned int8 (21 ГБ) + turbo-LoRA на 4 и 8 шагов (для сравнения)
@@ -49,24 +48,24 @@ set -o pipefail
 #   ALLOW_LOW_DISK=0          1 = не останавливаться при нехватке места
 #   WORKFLOW_URL=             прямая ссылка на .json воркфлоу (скачается в user/default/workflows; %20 в имени раскодируется)
 #
-# Файлы моделей и размеры сверены с HuggingFace 2026-11-08; DaSiWa Hybrid v4 Turbo — CivitAI, версия 3392061,
-# файл dasiwa_minimax_h3_ref2va_v4_pruned_turbo_int8.safetensors (проверка по sha256 из API CivitAI).
+# Файлы моделей и размеры сверены с HuggingFace 2026-11-08; DaSiWa Hybrid v4 (обычная) — CivitAI, версия 3391862,
+# файл dasiwa_minimax_h3_ref2va_v4_pruned_int8.safetensors (проверка по sha256 из API CivitAI).
 # DaSiWa Hybrid — один файл на оба слота модели: он умеет и режимы «от изображения» (I2VA, T2VA, L2VA, FL2VA),
 # и REF2VA (референсы). Суффикс «int8» в имени файла — способ сжатия весов (8 бит), это не другая модель.
-# Turbo — дистиллят на 4–8 шагов (быстро, для черновиков), обычная — 20–25 шагов (для финала).
+# Версия DaSiWa Turbo (дистиллят на 4–8 шагов) из скрипта убрана: качается только обычная, 20–25 шагов.
 # Дополнительно (для другого воркфлоу): текстовый энкодер Qwen3-VL 4B fp8 scaled (5,2 ГБ, Comfy-Org/Qwen3-VL) —
 # нужен узлу Load CLIP с типом qwen_image; кладётся в models/text_encoders.
 # Ноды (кроме Manager, KJNodes, GGUF, DaSiWa): rgthree, Impact Pack, Inspire Pack, Easy Use, DynamicPrompts,
 # WAS Node Suite (Revised) — для блока «картинка → промпт» (Prompt enhancer, загрузка картинок из папки).
-# Воркфлоу «MythicAlchemy» по умолчанию выбирает в панели Settings: DaSiWa Hybrid v4 Turbo в обоих слотах UNET,
-# video VAE int8_convrot, CLIP nvfp4_awq, audio VAE fp32 — всё это скачивается ниже, менять списки не придётся.
+# Воркфлоу «MythicAlchemy» по умолчанию выбирает в панели Settings DaSiWa Hybrid v4 Turbo, но скрипт её больше не качает:
+# в обоих слотах UNET выбери обычную (dasiwa_minimax_h3_ref2va_v4_pruned_int8). Video VAE int8_convrot, CLIP nvfp4_awq,
+# audio VAE fp32 скачиваются ниже, менять списки не придётся.
 # ВАЖНО: скрипт проверен только синтаксически и по ссылкам/версиям; на живом
 # инстансе Vast его ещё не запускали.
 # ==========================================================================
 
 H3_REF2VA="${H3_REF2VA:-0}"
 H3_OFFICIAL_FL2VA="${H3_OFFICIAL_FL2VA:-0}"
-H3_DASIWA_REGULAR="${H3_DASIWA_REGULAR:-1}"
 H3_DIRECTOR_IMAGE_INPUT="${H3_DIRECTOR_IMAGE_INPUT:-1}"
 CIVITAI_TOKEN="${CIVITAI_TOKEN:-}"
 H3_OPTIONAL="${H3_OPTIONAL:-1}"
@@ -462,22 +461,17 @@ PYEOF
 # --------------------------------------------------------------------------
 echo "⬇️ Скачивание моделей (профиль $H3_PROFILE)..."
 HF_H3="https://huggingface.co/Comfy-Org/MiniMax-H3/resolve/main"
-DASIWA_SHA="36471AFB817747B711B9ABAD3D8E6B7C88A7C2B91B4887D040A8DCB7EE82B2D6"            # v4 Turbo int8
-DASIWA_REGULAR_SHA="4AD2A1D7135C77F799BA9B93AF893FC2654315408C069A26F6516CDED1E8A53B"    # v4 обычная int8
+DASIWA_SHA="4AD2A1D7135C77F799BA9B93AF893FC2654315408C069A26F6516CDED1E8A53B"            # v4 обычная int8
 FAILED_MODELS=()
 
 # формат: URL | путь внутри папки | папка в models | размер в байтах (0 = не проверять) | sha256 (необязательно)
 MODEL_LIST=()
 if [ -n "$CIVITAI_TOKEN" ]; then
-  MODEL_LIST+=("https://civitai.com/api/download/models/3392061?fileId=3281858|MiniMaxH3/dasiwa_minimax_h3_ref2va_v4_pruned_turbo_int8.safetensors|$MODELS_DIR/diffusion_models|0|$DASIWA_SHA")
-  if [ "$H3_DASIWA_REGULAR" = "1" ]; then
-    MODEL_LIST+=("https://civitai.com/api/download/models/3391862?fileId=3281578|MiniMaxH3/dasiwa_minimax_h3_ref2va_v4_pruned_int8.safetensors|$MODELS_DIR/diffusion_models|0|$DASIWA_REGULAR_SHA")
-  fi
+  MODEL_LIST+=("https://civitai.com/api/download/models/3391862?fileId=3281578|MiniMaxH3/dasiwa_minimax_h3_ref2va_v4_pruned_int8.safetensors|$MODELS_DIR/diffusion_models|0|$DASIWA_SHA")
 else
-  echo "⚠️ CIVITAI_TOKEN не задан — модели DaSiWa Hybrid v4 (CivitAI) пропущены, воркфлоу по умолчанию без них не запустится." >&2
+  echo "⚠️ CIVITAI_TOKEN не задан — модель DaSiWa Hybrid v4 (CivitAI) пропущена, воркфлоу по умолчанию без неё не запустится." >&2
   echo "   Задай CIVITAI_TOKEN в env шаблона Vast либо поставь H3_OFFICIAL_FL2VA=1 и выбери официальную FL2VA в панели Settings." >&2
-  FAILED_MODELS+=("MiniMaxH3/dasiwa_minimax_h3_ref2va_v4_pruned_turbo_int8.safetensors (нужен CIVITAI_TOKEN)")
-  [ "$H3_DASIWA_REGULAR" = "1" ] && FAILED_MODELS+=("MiniMaxH3/dasiwa_minimax_h3_ref2va_v4_pruned_int8.safetensors (нужен CIVITAI_TOKEN)")
+  FAILED_MODELS+=("MiniMaxH3/dasiwa_minimax_h3_ref2va_v4_pruned_int8.safetensors (нужен CIVITAI_TOKEN)")
 fi
 MODEL_LIST+=(
   "$HF_H3/text_encoders/qwen3vl_32b_minimax_h3_nvfp4_awq.safetensors|qwen3vl_32b_minimax_h3_nvfp4_awq.safetensors|$MODELS_DIR/text_encoders|15687142551|"
@@ -680,9 +674,7 @@ else
     echo "   • bf16-модель (если скачана) выбери в слоте UNET FL2VA и сравни с int8: ожидай заметно больше времени на ролик."
 fi
 echo "   • Если ComfyUI падает по ОЗУ: добавь --disable-pinned-memory в COMFYUI_ARGS шаблона."
-echo "   • Turbo (DaSiWa): euler/simple, 4–8 шагов, shift video 6–12 / audio 3–5 — для черновиков (начни с 8 шагов)."
-echo "   • Обычная (DaSiWa): res_multistep/simple или euler/simple, 20–25 шагов, shift video 10–12 / audio 3–5 — для финала. Выбери её в обоих слотах UNET."
-echo "   • Звук: у Turbo бывают просадки голоса и другая громкость — сравни Turbo (8 шагов) и обычную на реплике: то же изображение, промпт, фиксированное зерно."
+echo "   • DaSiWa Hybrid v4 (обычная): res_multistep/simple или euler/simple, 20–25 шагов, shift video 10–12 / audio 3–5. Выбери её в обоих слотах UNET (в воркфлоу по умолчанию стоит Turbo, её скрипт не качает)."
 echo "   • Пик VRAM смотри в nvidia-smi и в логе ComfyUI (строки 'loaded completely' / 'partially loaded')."
 echo "⏱️ Всего времени: $(( (SECONDS-START_TS)/60 )) мин"
 echo "✅ ВСЕ ОПЕРАЦИИ ЗАВЕРШЕНЫ!"
