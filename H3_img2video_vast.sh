@@ -34,8 +34,8 @@ set -o pipefail
 #   H3_BF16_DIT=0             1 = официальная FL2VA pruned bf16 (40 ГБ), только для big
 #   ALLOW_PROFILE_MISMATCH=0  1 = не останавливаться, если профиль big запущен на карте < 70 ГБ
 #   COMFY_VERSION=v0.44.2     тег ядра ComfyUI
-#   CIVITAI_TOKEN=            ТОКЕН CivitAI (обязателен для DaSiWa Hybrid v4 — основная модель воркфлоу;
-#                             задать в env шаблона Vast, в логах и в скрипте токен не печатается)
+#   CIVITAI_TOKEN=            ТОКЕН CivitAI (необязателен: DaSiWa Hybrid v4 качается с HuggingFace, CivitAI — запасная ссылка,
+#                             если оба зеркала HF недоступны; задать в env шаблона Vast, в логах токен не печатается)
 #   H3_DIRECTOR_IMAGE_INPUT=1 добавить узлу MiniMaxH3 Director вход IMAGE (external_image_overwrite): первый кадр I2VA/FL2VA
 #                             берётся с любой ноды-загрузчика (например, Load Image Batch From Dir); 0 = не патчить
 #   H3_OFFICIAL_FL2VA=0       1 = ещё и официальную FL2VA pruned int8 (21 ГБ) + turbo-LoRA на 4 и 8 шагов (для сравнения)
@@ -48,8 +48,10 @@ set -o pipefail
 #   ALLOW_LOW_DISK=0          1 = не останавливаться при нехватке места
 #   WORKFLOW_URL=             прямая ссылка на .json воркфлоу (скачается в user/default/workflows; %20 в имени раскодируется)
 #
-# Файлы моделей и размеры сверены с HuggingFace 2026-11-08; DaSiWa Hybrid v4 (обычная) — CivitAI, версия 3391862,
-# файл dasiwa_minimax_h3_ref2va_v4_pruned_int8.safetensors (проверка по sha256 из API CivitAI).
+# Файлы моделей и размеры сверены с HuggingFace 2026-11-08; DaSiWa Hybrid v4 (обычная, 20 967 668 616 байт) — оригинал на
+# CivitAI (версия 3391862), в скрипте качается с двух зеркал HuggingFace (jeuzu, saibaraburabo; ссылки привязаны к коммиту),
+# запасной — CivitAI. Все три источника отдают один и тот же файл: sha256 4AD2A1D7…E8A53B (из API CivitAI и API HF),
+# скрипт сверяет его после скачивания.
 # DaSiWa Hybrid — один файл на оба слота модели: он умеет и режимы «от изображения» (I2VA, T2VA, L2VA, FL2VA),
 # и REF2VA (референсы). Суффикс «int8» в имени файла — способ сжатия весов (8 бит), это не другая модель.
 # Версия DaSiWa Turbo (дистиллят на 4–8 шагов) из скрипта убрана: качается только обычная, 20–25 шагов.
@@ -464,15 +466,17 @@ HF_H3="https://huggingface.co/Comfy-Org/MiniMax-H3/resolve/main"
 DASIWA_SHA="4AD2A1D7135C77F799BA9B93AF893FC2654315408C069A26F6516CDED1E8A53B"            # v4 обычная int8
 FAILED_MODELS=()
 
-# формат: URL | путь внутри папки | папка в models | размер в байтах (0 = не проверять) | sha256 (необязательно)
-MODEL_LIST=()
+# DaSiWa Hybrid v4 int8: несколько ссылок через пробел — попытки идут по кругу (HF, HF-зеркало, CivitAI), докачка wget -c
+# продолжает файл с любого источника, итог всё равно сверяется по sha256.
+DASIWA_URLS="https://huggingface.co/jeuzu/Dasiwa_MiniMax_H3_V4_int8/resolve/60dcbbba48120d6c8d9a936c2016995818326b4e/DasiwaMinimaxH3_V4_int8.safetensors"
+DASIWA_URLS+=" https://huggingface.co/saibaraburabo/DasiwaMinimaxH3_dasiwaHybridV4/resolve/fcc252f27a8f1d573102394c9d02a12efa756b57/DasiwaMinimaxH3_dasiwaHybridV4_int8.safetensors"
 if [ -n "$CIVITAI_TOKEN" ]; then
-  MODEL_LIST+=("https://civitai.com/api/download/models/3391862?fileId=3281578|MiniMaxH3/dasiwa_minimax_h3_ref2va_v4_pruned_int8.safetensors|$MODELS_DIR/diffusion_models|0|$DASIWA_SHA")
-else
-  echo "⚠️ CIVITAI_TOKEN не задан — модель DaSiWa Hybrid v4 (CivitAI) пропущена, воркфлоу по умолчанию без неё не запустится." >&2
-  echo "   Задай CIVITAI_TOKEN в env шаблона Vast либо поставь H3_OFFICIAL_FL2VA=1 и выбери официальную FL2VA в панели Settings." >&2
-  FAILED_MODELS+=("MiniMaxH3/dasiwa_minimax_h3_ref2va_v4_pruned_int8.safetensors (нужен CIVITAI_TOKEN)")
+  DASIWA_URLS+=" https://civitai.com/api/download/models/3391862?fileId=3281578"
 fi
+
+# формат: URL (или несколько через пробел) | путь внутри папки | папка в models | размер в байтах (0 = не проверять) | sha256 (необязательно)
+MODEL_LIST=()
+MODEL_LIST+=("$DASIWA_URLS|MiniMaxH3/dasiwa_minimax_h3_ref2va_v4_pruned_int8.safetensors|$MODELS_DIR/diffusion_models|20967668616|$DASIWA_SHA")
 MODEL_LIST+=(
   "$HF_H3/text_encoders/qwen3vl_32b_minimax_h3_nvfp4_awq.safetensors|qwen3vl_32b_minimax_h3_nvfp4_awq.safetensors|$MODELS_DIR/text_encoders|15687142551|"
   "$HF_H3/vae/minimax_h3_video_vae_fp16.safetensors|MiniMaxH3/minimax_h3_video_vae_fp16.safetensors|$MODELS_DIR/vae|5207808496|"
@@ -556,11 +560,12 @@ download_model() {
 
     local T0=$SECONDS ATTEMPT=1 MAX_ATTEMPTS=15 RC COMPLETE GOT
     local DL_URL
+    local -a URLS; read -r -a URLS <<< "$URL"    # одна ссылка или несколько зеркал через пробел
     while [ "$ATTEMPT" -le "$MAX_ATTEMPTS" ]; do
         [ "$ATTEMPT" -gt 1 ] && echo "   🔄 докачка, попытка $ATTEMPT/$MAX_ATTEMPTS..."
-        if ! DL_URL=$(resolve_final_url "$URL"); then
+        if ! DL_URL=$(resolve_final_url "${URLS[$(( (ATTEMPT-1) % ${#URLS[@]} ))]}"); then
             echo "   ⚠️ не удалось получить ссылку на скачивание (проверь CIVITAI_TOKEN), попытка $ATTEMPT" >&2
-            [ "$ATTEMPT" -ge 3 ] && break
+            [ "$ATTEMPT" -ge 3 ] && [ "${#URLS[@]}" -le 1 ] && break
             sleep 5; ATTEMPT=$((ATTEMPT+1)); continue
         fi
         wget --tries=3 --timeout=30 -c --progress=dot:giga "$DL_URL" -O "$DEST"
